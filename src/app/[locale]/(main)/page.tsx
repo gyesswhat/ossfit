@@ -9,7 +9,8 @@ import { LogoutButton } from './logout-button';
 import { ReanalyzeButton } from './reanalyze-button';
 
 /**
- * [목적] 보호된 메인 홈. 세션이 없으면 로그인으로 리다이렉트하고, 최초 진입 시 GitHub 활동을 분석해 user_profiles를 생성한다.
+ * [목적] 보호된 메인 홈. 세션이 없으면 로그인으로, 온보딩 미완료면 온보딩으로 리다이렉트한다.
+ *        최초 진입 시 GitHub 활동을 분석해 user_profiles를 생성한다.
  * [주의] proxy.ts에서 1차 가드가 걸려 있지만 Server Action 경로 등으로 우회될 수 있어 페이지에서도 재확인한다.
  *        access_token이 JWT에서 유실된 경우 분석을 건너뛰고 기존 프로필만 조회한다.
  */
@@ -32,6 +33,10 @@ export default async function HomePage({
     ? await ensureUserProfile(session.user.id, session.accessToken)
     : await getUserProfile(session.user.id);
 
+  if (!profile?.onboardingCompleted) {
+    redirect(`/${locale}/onboarding`);
+  }
+
   const t = await getTranslations('Home');
   const profileT = await getTranslations('Profile');
   const displayName = session.user.name ?? session.user.email ?? 'OSSFIT';
@@ -45,26 +50,24 @@ export default async function HomePage({
       <span className="inline-flex items-center rounded-full bg-accent px-4 py-1 text-sm font-medium text-accent-foreground">
         {t('greeting', { name: displayName })}
       </span>
-      {profile && (
-        <section className="flex flex-col items-center gap-3">
+      <section className="flex flex-col items-center gap-3">
+        <p className="text-sm text-muted-foreground">
+          {profileT('levelLabel', { level: profile.level })}
+        </p>
+        {profile.stackTags.length > 0 ? (
+          <div className="flex flex-wrap justify-center gap-2">
+            {profile.stackTags.map((tag) => (
+              <Badge key={tag} variant="accent">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        ) : (
           <p className="text-sm text-muted-foreground">
-            {profileT('levelLabel', { level: profile.level })}
+            {profileT('stackEmpty')}
           </p>
-          {profile.stackTags.length > 0 ? (
-            <div className="flex flex-wrap justify-center gap-2">
-              {profile.stackTags.map((tag) => (
-                <Badge key={tag} variant="accent">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {profileT('stackEmpty')}
-            </p>
-          )}
-        </section>
-      )}
+        )}
+      </section>
       <ReanalyzeButton locale={locale} />
       <LogoutButton locale={locale} />
     </main>

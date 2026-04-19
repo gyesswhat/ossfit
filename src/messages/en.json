@@ -34,5 +34,27 @@
     "reanalyzeError": "Analysis failed. Please try again later.",
     "reanalyzeMissingToken": "GitHub access token expired. Please sign in again.",
     "reanalyzeUnauthenticated": "Sign in required."
+  },
+  "Onboarding": {
+    "title": "Onboarding",
+    "description": "Confirm your stack and domains so we can recommend the right issues.",
+    "step1Title": "Step 1 · Confirm your stack",
+    "step1Description": "Stack tags detected from your GitHub activity. Click to remove, or add more below.",
+    "stackEmpty": "No stack detected yet. Add tags below.",
+    "stackPlaceholder": "e.g. typescript",
+    "addTag": "Add",
+    "removeTag": "Remove {tag}",
+    "step2Title": "Step 2 · Pick domains",
+    "step2Description": "Select one or more domains you are interested in.",
+    "domainLabels": {
+      "spring-boot": "Spring Boot",
+      "kotlin": "Kotlin",
+      "devops": "DevOps",
+      "etc": "Other"
+    },
+    "next": "Next",
+    "back": "Back",
+    "submit": "Get started",
+    "submitting": "Saving..."
   }
 }

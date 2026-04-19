@@ -34,5 +34,27 @@
     "reanalyzeError": "분석에 실패했습니다. 잠시 후 다시 시도해 주세요.",
     "reanalyzeMissingToken": "GitHub 액세스 토큰이 만료되었습니다. 다시 로그인해 주세요.",
     "reanalyzeUnauthenticated": "로그인이 필요합니다."
+  },
+  "Onboarding": {
+    "title": "온보딩",
+    "description": "스택과 관심 도메인을 확인해 맞춤 이슈를 추천할 준비를 해요.",
+    "step1Title": "1단계 · 스택 확인",
+    "step1Description": "GitHub 활동에서 추출한 스택 태그예요. 클릭하면 제거되고, 아래에서 직접 추가할 수도 있어요.",
+    "stackEmpty": "아직 스택이 없어요. 아래에서 직접 추가해 주세요.",
+    "stackPlaceholder": "예: typescript",
+    "addTag": "추가",
+    "removeTag": "{tag} 제거",
+    "step2Title": "2단계 · 관심 도메인",
+    "step2Description": "관심 있는 도메인을 하나 이상 선택해 주세요.",
+    "domainLabels": {
+      "spring-boot": "Spring Boot",
+      "kotlin": "Kotlin",
+      "devops": "DevOps",
+      "etc": "기타"
+    },
+    "next": "다음",
+    "back": "이전",
+    "submit": "시작하기",
+    "submitting": "저장 중..."
   }
 }
