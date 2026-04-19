@@ -5,7 +5,10 @@
   },
   "Home": {
     "welcome": "Welcome to OSSFIT",
-    "tagline": "Discover GitHub issues tailored to your skills."
+    "tagline": "Discover GitHub issues tailored to your skills.",
+    "greeting": "Hi {name}",
+    "signOut": "Sign out",
+    "signingOut": "Signing out..."
   },
   "Beta": {
     "title": "Beta access",
@@ -15,5 +18,11 @@
     "submitting": "Checking...",
     "errorInvalid": "That password is incorrect.",
     "errorMissingConfig": "The server is missing configuration. Please contact the operator."
+  },
+  "Login": {
+    "title": "Sign in with GitHub",
+    "description": "Sign in with your GitHub account and OSSFIT will recommend issues that match your stack.",
+    "submit": "Continue with GitHub",
+    "submitting": "Redirecting..."
   }
 }
