@@ -24,5 +24,15 @@
     "description": "Sign in with your GitHub account and OSSFIT will recommend issues that match your stack.",
     "submit": "Continue with GitHub",
     "submitting": "Redirecting..."
+  },
+  "Profile": {
+    "levelLabel": "Current level: {level}",
+    "stackEmpty": "No stack tags detected yet. Try re-analyzing.",
+    "reanalyze": "Re-analyze skills",
+    "reanalyzing": "Analyzing...",
+    "reanalyzeSuccess": "Your skill profile is up to date.",
+    "reanalyzeError": "Analysis failed. Please try again later.",
+    "reanalyzeMissingToken": "GitHub access token expired. Please sign in again.",
+    "reanalyzeUnauthenticated": "Sign in required."
   }
 }
