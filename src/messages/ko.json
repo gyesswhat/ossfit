@@ -1,0 +1,10 @@
+{
+  "Meta": {
+    "title": "OSSFIT",
+    "description": "당신의 스택에 맞는 오픈소스 기여 이슈를 찾아드립니다."
+  },
+  "Home": {
+    "welcome": "OSSFIT에 오신 것을 환영합니다",
+    "tagline": "GitHub에서 당신에게 꼭 맞는 오픈소스 이슈를 만나보세요."
+  }
+}

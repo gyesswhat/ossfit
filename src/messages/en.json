@@ -1,0 +1,10 @@
+{
+  "Meta": {
+    "title": "OSSFIT",
+    "description": "Find open source issues that match your stack."
+  },
+  "Home": {
+    "welcome": "Welcome to OSSFIT",
+    "tagline": "Discover GitHub issues tailored to your skills."
+  }
+}
