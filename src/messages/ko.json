@@ -6,5 +6,14 @@
   "Home": {
     "welcome": "OSSFIT에 오신 것을 환영합니다",
     "tagline": "GitHub에서 당신에게 꼭 맞는 오픈소스 이슈를 만나보세요."
+  },
+  "Beta": {
+    "title": "베타 접근",
+    "description": "OSSFIT은 비공개 베타 단계입니다. 전달받은 비밀번호를 입력해 주세요.",
+    "placeholder": "베타 비밀번호",
+    "submit": "확인",
+    "submitting": "확인 중...",
+    "errorInvalid": "비밀번호가 올바르지 않습니다.",
+    "errorMissingConfig": "서버 설정 오류로 비밀번호를 검증할 수 없습니다. 운영자에게 문의해 주세요."
   }
 }
