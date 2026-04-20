@@ -3,10 +3,17 @@
 import { SlidersHorizontal } from 'lucide-react';
 import { useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { usePathname, useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from '@/i18n/navigation';
 import { displayNameForSlug } from '@/lib/github/catalog';
-import { RECOMMENDED_LABELS } from '@/lib/github/search';
+import {
+  DEFAULT_SORT,
+  MIN_STARS_OPTIONS,
+  RECOMMENDED_LABELS,
+  SORT_OPTIONS,
+  type MinStarsOption,
+  type SortOption,
+} from '@/lib/github/search';
 
 type Props = {
   availableLanguages: readonly string[];
@@ -17,10 +24,9 @@ type Props = {
 type ToggleKey = 'label' | 'language' | 'topic';
 
 /**
- * [목적] 라벨/언어/토픽 토글 필터. 한 줄 헤더로 역할을 명시하고, 그룹별로 섹션을 분리해
- *        어디서 조정하는지 곧바로 인지하게 한다.
- * [주의] 변경은 URL searchParams로 영속화하고 RSC를 재검증한다.
- *        한 그룹이 0개면 `-Empty` 힌트를 노출해 "클릭해서 선택" 액션을 유도한다.
+ * [목적] 라벨/언어/토픽 토글 + 정렬 + 보조 필터 패널. URL searchParams에 모든 상태를 영속화한다.
+ * [주의] 변경 시 `startTransition`으로 감싸 RSC 재요청을 논블로킹 처리한다.
+ *        단일 값 파라미터(sort, minStars, noAssignee)는 set 후 중복을 제거한다.
  */
 export function FeedFilters({
   availableLanguages,
@@ -39,24 +45,65 @@ export function FeedFilters({
   const selectedLanguages = searchParams.getAll('language');
   const selectedTopics = searchParams.getAll('topic');
 
-  function toggle(key: ToggleKey, value: string, on: boolean) {
+  const sortParam = searchParams.get('sort');
+  const selectedSort: SortOption =
+    sortParam && (SORT_OPTIONS as readonly string[]).includes(sortParam)
+      ? (sortParam as SortOption)
+      : DEFAULT_SORT;
+
+  const minStarsParam = Number(searchParams.get('minStars') ?? 0);
+  const selectedMinStars: MinStarsOption = (MIN_STARS_OPTIONS as readonly number[]).includes(
+    minStarsParam,
+  )
+    ? (minStarsParam as MinStarsOption)
+    : 0;
+
+  const noAssignee = searchParams.get('noAssignee') === '1';
+
+  function updateParams(mutate: (next: URLSearchParams) => void) {
     const next = new URLSearchParams(searchParams);
-    const current = next.getAll(key);
-    next.delete(key);
-    const wanted = on
-      ? Array.from(new Set([...current, value]))
-      : current.filter((v) => v !== value);
-    for (const v of wanted) next.append(key, v);
+    mutate(next);
+    next.delete('page');
     startTransition(() => {
       router.replace(`${pathname}?${next.toString()}`);
     });
   }
 
+  function toggle(key: ToggleKey, value: string, on: boolean) {
+    updateParams((next) => {
+      const current = next.getAll(key);
+      next.delete(key);
+      const wanted = on
+        ? Array.from(new Set([...current, value]))
+        : current.filter((v) => v !== value);
+      for (const v of wanted) next.append(key, v);
+    });
+  }
+
   function clearGroup(key: ToggleKey) {
-    const next = new URLSearchParams(searchParams);
-    next.delete(key);
-    startTransition(() => {
-      router.replace(`${pathname}?${next.toString()}`);
+    updateParams((next) => {
+      next.delete(key);
+    });
+  }
+
+  function setSort(value: SortOption) {
+    updateParams((next) => {
+      next.delete('sort');
+      if (value !== DEFAULT_SORT) next.set('sort', value);
+    });
+  }
+
+  function setMinStars(value: MinStarsOption) {
+    updateParams((next) => {
+      next.delete('minStars');
+      if (value > 0) next.set('minStars', String(value));
+    });
+  }
+
+  function toggleNoAssignee(on: boolean) {
+    updateParams((next) => {
+      next.delete('noAssignee');
+      if (on) next.set('noAssignee', '1');
     });
   }
 
@@ -138,6 +185,41 @@ export function FeedFilters({
           })}
         </FilterGroup>
       )}
+
+      <FilterGroup title={t('filterSort')} emptyHint={null} isEmpty={false}>
+        {SORT_OPTIONS.map((option) => (
+          <Chip
+            key={option}
+            label={t(`sortOption.${option}`)}
+            active={selectedSort === option}
+            onClick={() => setSort(option)}
+          />
+        ))}
+      </FilterGroup>
+
+      <FilterGroup title={t('filterMinStars')} emptyHint={null} isEmpty={false}>
+        {MIN_STARS_OPTIONS.map((value) => (
+          <Chip
+            key={value}
+            label={value === 0 ? t('minStarsAny') : `≥ ${value}`}
+            active={selectedMinStars === value}
+            onClick={() => setMinStars(value)}
+          />
+        ))}
+      </FilterGroup>
+
+      <FilterGroup title={t('filterAssignee')} emptyHint={null} isEmpty={false}>
+        <Chip
+          label={t('assigneeAny')}
+          active={!noAssignee}
+          onClick={() => toggleNoAssignee(false)}
+        />
+        <Chip
+          label={t('assigneeUnassigned')}
+          active={noAssignee}
+          onClick={() => toggleNoAssignee(true)}
+        />
+      </FilterGroup>
     </section>
   );
 }

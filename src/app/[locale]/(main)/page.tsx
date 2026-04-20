@@ -9,22 +9,29 @@ import { getBookmarkedIssueUrls } from '@/lib/bookmarks/service';
 import { classifyTag, displayNameForSlug } from '@/lib/github/catalog';
 import {
   buildSearchQuery,
+  DEFAULT_SORT,
   isRateLimitError,
+  isSortOption,
+  MIN_STARS_OPTIONS,
   RECOMMENDED_LABELS,
   searchIssues,
+  totalPageCount,
   type SearchIssuesResult,
+  type SortOption,
 } from '@/lib/github/search';
 import { ensureUserProfile, getUserProfile } from '@/lib/profile/service';
 import { FeedFilters } from './feed-filters';
+import { FeedPagination } from './feed-pagination';
 import { IssueFeed } from './issue-feed';
 import { LogoutButton } from './logout-button';
 import { ReanalyzeButton } from './reanalyze-button';
+import { SearchCriteria } from './search-criteria';
 
 type SearchParamRecord = Record<string, string | string[] | undefined>;
 
 /**
  * [목적] 보호된 메인 피드. 사용자 스택과 URL 필터를 합쳐 GitHub Search를 호출하고
- *        프로필 헤더 + 필터 + 이슈 카드 그리드를 렌더한다.
+ *        검색 기준 안내 + 필터 + 이슈 카드 그리드 + 페이지네이션을 렌더한다.
  * [주의] proxy.ts에서 1차 가드가 걸려 있지만 페이지에서도 세션·온보딩을 재확인한다.
  *        Search 실패 시(404 토큰 만료, 429 rate limit, 기타) 피드는 빈 상태로 두고 안내 메시지만 표시한다.
  */
@@ -69,10 +76,23 @@ export default async function HomePage({
     languageOverrides.length > 0 ? languageOverrides : profileLanguages;
   const effectiveTopics =
     topicOverrides.length > 0 ? topicOverrides : profileTopics;
-  const tags = [...effectiveLanguages, ...effectiveTopics];
   const labels =
     labelOverrides.length > 0 ? labelOverrides : ['good first issue'];
-  const query = buildSearchQuery(tags, labels);
+
+  const sortParam = readScalarParam(resolvedSearchParams.sort);
+  const sort: SortOption =
+    sortParam && isSortOption(sortParam) ? sortParam : DEFAULT_SORT;
+
+  const minStars = readMinStars(readScalarParam(resolvedSearchParams.minStars));
+  const noAssignee = readScalarParam(resolvedSearchParams.noAssignee) === '1';
+  const page = readPage(readScalarParam(resolvedSearchParams.page));
+
+  const tags = [...effectiveLanguages, ...effectiveTopics];
+  const query = buildSearchQuery(tags, labels, {
+    sort,
+    minStars,
+    noAssignee,
+  });
 
   let result: SearchIssuesResult | null = null;
   let errorKey: 'rate-limit' | 'missing-token' | 'unknown' | null = null;
@@ -80,11 +100,17 @@ export default async function HomePage({
   if (!session.accessToken) {
     errorKey = 'missing-token';
   } else if (tags.length === 0) {
-    // 스택 태그가 없으면 검색을 시도하지 않는다 — 빈 쿼리는 노이즈만 늘린다.
-    result = { issueCount: 0, issues: [] };
+    result = {
+      issueCount: 0,
+      issues: [],
+      page: 1,
+      perPage: 30,
+      hasPreviousPage: false,
+      hasNextPage: false,
+    };
   } else {
     try {
-      result = await searchIssues(query, session.accessToken);
+      result = await searchIssues(query, session.accessToken, { page });
     } catch (error) {
       if (isRateLimitError(error)) {
         console.warn('[page/feed] rate limited', { query });
@@ -115,6 +141,8 @@ export default async function HomePage({
   const homeT = await getTranslations('Home');
   const profileT = await getTranslations('Profile');
   const displayName = session.user.name ?? session.user.email ?? 'OSSFIT';
+
+  const totalPages = result ? totalPageCount(result.issueCount) : 1;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
@@ -175,6 +203,20 @@ export default async function HomePage({
         </div>
       </header>
 
+      <SearchCriteria
+        languages={effectiveLanguages}
+        topics={effectiveTopics}
+        labels={labels}
+        languageSource={languageOverrides.length > 0 ? 'custom' : 'default'}
+        topicSource={topicOverrides.length > 0 ? 'custom' : 'default'}
+        labelSource={labelOverrides.length > 0 ? 'custom' : 'default'}
+        sort={sort}
+        minStars={minStars}
+        noAssignee={noAssignee}
+        rawQuery={query}
+        hasStack={tags.length > 0}
+      />
+
       <FeedFilters
         availableLanguages={profileLanguages}
         availableTopics={profileTopics}
@@ -209,7 +251,11 @@ export default async function HomePage({
             {tags.length > 0 &&
               (labelOverrides.length > 0 ||
                 languageOverrides.length > 0 ||
-                topicOverrides.length > 0) && (
+                topicOverrides.length > 0 ||
+                sortParam !== null ||
+                minStars > 0 ||
+                noAssignee ||
+                page > 1) && (
                 <Link
                   href="/"
                   className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground hover:bg-accent"
@@ -221,11 +267,19 @@ export default async function HomePage({
         )}
 
         {result && result.issues.length > 0 && (
-          <IssueFeed
-            locale={locale}
-            issues={result.issues}
-            initialBookmarkedUrls={bookmarkedUrls}
-          />
+          <>
+            <IssueFeed
+              locale={locale}
+              issues={result.issues}
+              initialBookmarkedUrls={bookmarkedUrls}
+            />
+            <FeedPagination
+              page={result.page}
+              totalPages={totalPages}
+              hasNextPage={result.hasNextPage}
+              hasPreviousPage={result.hasPreviousPage}
+            />
+          </>
         )}
       </section>
     </main>
@@ -236,6 +290,27 @@ function readListParam(value: string | string[] | undefined): string[] {
   if (!value) return [];
   if (Array.isArray(value)) return value.filter((v) => v.length > 0);
   return value.length > 0 ? [value] : [];
+}
+
+function readScalarParam(value: string | string[] | undefined): string | null {
+  if (!value) return null;
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw && raw.length > 0 ? raw : null;
+}
+
+function readMinStars(value: string | null): number {
+  if (!value) return 0;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  const rounded = Math.max(0, Math.floor(parsed));
+  return (MIN_STARS_OPTIONS as readonly number[]).includes(rounded) ? rounded : 0;
+}
+
+function readPage(value: string | null): number {
+  if (!value) return 1;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.max(1, Math.floor(parsed));
 }
 
 function ErrorPanel({ message }: { message: string }) {
