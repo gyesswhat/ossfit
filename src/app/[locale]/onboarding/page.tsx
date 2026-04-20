@@ -10,10 +10,9 @@ import {
 } from '@/components/ui/card';
 import { routing } from '@/i18n/routing';
 import { auth } from '@/lib/auth';
+import { DOMAIN_OPTIONS } from '@/lib/profile/domains';
 import { ensureUserProfile, getUserProfile } from '@/lib/profile/service';
 import { OnboardingForm } from './onboarding-form';
-
-export const DOMAIN_OPTIONS = ['spring-boot', 'kotlin', 'devops', 'etc'] as const;
 
 /**
  * [목적] 2단계 온보딩 페이지. 이미 완료한 사용자는 홈으로 돌려보낸다.

@@ -6,6 +6,7 @@ import { Link } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { auth } from '@/lib/auth';
 import { getBookmarkedIssueUrls } from '@/lib/bookmarks/service';
+import { classifyTag, displayNameForSlug } from '@/lib/github/catalog';
 import {
   buildSearchQuery,
   isRateLimitError,
@@ -55,8 +56,20 @@ export default async function HomePage({
   const resolvedSearchParams = await searchParams;
   const labelOverrides = readListParam(resolvedSearchParams.label);
   const languageOverrides = readListParam(resolvedSearchParams.language);
+  const topicOverrides = readListParam(resolvedSearchParams.topic);
 
-  const tags = languageOverrides.length > 0 ? languageOverrides : profile.stackTags;
+  const profileLanguages = profile.stackTags.filter(
+    (tag) => classifyTag(tag) === 'language',
+  );
+  const profileTopics = profile.stackTags.filter(
+    (tag) => classifyTag(tag) === 'topic',
+  );
+
+  const effectiveLanguages =
+    languageOverrides.length > 0 ? languageOverrides : profileLanguages;
+  const effectiveTopics =
+    topicOverrides.length > 0 ? topicOverrides : profileTopics;
+  const tags = [...effectiveLanguages, ...effectiveTopics];
   const labels =
     labelOverrides.length > 0 ? labelOverrides : ['good first issue'];
   const query = buildSearchQuery(tags, labels);
@@ -115,12 +128,31 @@ export default async function HomePage({
           </p>
         </div>
         {profile.stackTags.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {profile.stackTags.map((tag) => (
-              <Badge key={tag} variant="accent">
-                {tag}
-              </Badge>
-            ))}
+          <div className="flex flex-col gap-2">
+            {profileLanguages.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {profileT('stackLanguagesLabel')}
+                </span>
+                {profileLanguages.map((tag) => (
+                  <Badge key={tag} variant="accent">
+                    {displayNameForSlug(tag)}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {profileTopics.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {profileT('stackTopicsLabel')}
+                </span>
+                {profileTopics.map((tag) => (
+                  <Badge key={tag} variant="outline">
+                    {displayNameForSlug(tag)}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">{profileT('stackEmpty')}</p>
@@ -144,7 +176,8 @@ export default async function HomePage({
       </header>
 
       <FeedFilters
-        availableLanguages={profile.stackTags}
+        availableLanguages={profileLanguages}
+        availableTopics={profileTopics}
         defaultLabels={[RECOMMENDED_LABELS[0]]}
       />
 
@@ -174,7 +207,9 @@ export default async function HomePage({
               {tags.length === 0 ? t('emptyNoStack') : t('empty')}
             </p>
             {tags.length > 0 &&
-              (labelOverrides.length > 0 || languageOverrides.length > 0) && (
+              (labelOverrides.length > 0 ||
+                languageOverrides.length > 0 ||
+                topicOverrides.length > 0) && (
                 <Link
                   href="/"
                   className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground hover:bg-accent"

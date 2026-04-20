@@ -2,7 +2,6 @@ import { ExternalLink } from 'lucide-react';
 import { hasLocale } from 'next-intl';
 import { getFormatter, getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound, redirect } from 'next/navigation';
-import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
@@ -14,8 +13,10 @@ import { Link } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { auth } from '@/lib/auth';
 import { listBookmarks } from '@/lib/bookmarks/service';
+import { DOMAIN_OPTIONS } from '@/lib/profile/domains';
 import { getUserProfile } from '@/lib/profile/service';
 import { ReanalyzeButton } from '../reanalyze-button';
+import { DomainEditor } from './domain-editor';
 import { StackEditor } from './stack-editor';
 
 /**
@@ -48,7 +49,6 @@ export default async function ProfilePage({
   const bookmarks = await listBookmarks(session.user.id);
 
   const t = await getTranslations('Profile');
-  const onboardingT = await getTranslations('Onboarding');
   const format = await getFormatter();
   const displayName = session.user.name ?? session.user.email ?? 'OSSFIT';
 
@@ -66,6 +66,7 @@ export default async function ProfilePage({
             <p className="text-sm text-muted-foreground">
               {t('levelLabel', { level: profile.level })}
             </p>
+            <p className="text-xs text-muted-foreground">{t('levelHint')}</p>
           </div>
           <div className="flex flex-col items-end gap-2">
             <Link
@@ -77,19 +78,6 @@ export default async function ProfilePage({
             <ReanalyzeButton locale={locale} />
           </div>
         </div>
-
-        {profile.domains.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              {t('domainsLabel')}
-            </span>
-            {profile.domains.map((domain) => (
-              <Badge key={domain} variant="accent">
-                {onboardingT(`domainLabels.${domain}`)}
-              </Badge>
-            ))}
-          </div>
-        )}
       </header>
 
       <Card>
@@ -102,6 +90,20 @@ export default async function ProfilePage({
             locale={locale}
             initialStackTags={profile.stackTags}
             personalTopics={profile.personalTopics}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('domainsSectionTitle')}</CardTitle>
+          <CardDescription>{t('domainsSectionDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DomainEditor
+            locale={locale}
+            initialDomains={profile.domains}
+            domainOptions={DOMAIN_OPTIONS}
           />
         </CardContent>
       </Card>

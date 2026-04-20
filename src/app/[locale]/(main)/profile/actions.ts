@@ -5,9 +5,11 @@ import { hasLocale } from 'next-intl';
 import { routing } from '@/i18n/routing';
 import { auth } from '@/lib/auth';
 import { classifyTag, normalizeSlug } from '@/lib/github/catalog';
+import { DOMAIN_SET } from '@/lib/profile/domains';
 import { updateUserProfile } from '@/lib/profile/service';
 
 const MAX_STACK_TAGS = 20;
+const MAX_DOMAINS = 10;
 
 export type UpdateStackState = {
   status: 'idle' | 'success' | 'unauthenticated' | 'error';
@@ -44,6 +46,50 @@ export async function updateStackAction(
 
   try {
     await updateUserProfile(session.user.id, { stackTags });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { status: 'error', errorMessage: message };
+  }
+
+  revalidatePath(`/${locale}/profile`);
+  revalidatePath(`/${locale}`);
+  return { status: 'success' };
+}
+
+export type UpdateDomainsState = {
+  status: 'idle' | 'success' | 'unauthenticated' | 'error';
+  errorMessage?: string;
+};
+
+/**
+ * [목적] 마이페이지에서 관심 도메인(domains) 배열을 덮어쓴다.
+ * [주의] 미리 정의된 DOMAIN_SET에 없는 값은 버려 DB에 예기치 못한 slug가 섞이지 않게 한다.
+ */
+export async function updateDomainsAction(
+  _prev: UpdateDomainsState,
+  formData: FormData,
+): Promise<UpdateDomainsState> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { status: 'unauthenticated' };
+  }
+
+  const localeInput = formData.get('locale')?.toString() ?? routing.defaultLocale;
+  const locale = hasLocale(routing.locales, localeInput)
+    ? localeInput
+    : routing.defaultLocale;
+
+  const domainsRaw = formData.getAll('domains').map((value) => value.toString());
+  const domains = Array.from(
+    new Set(
+      domainsRaw
+        .map((value) => value.trim())
+        .filter((value) => DOMAIN_SET.has(value)),
+    ),
+  ).slice(0, MAX_DOMAINS);
+
+  try {
+    await updateUserProfile(session.user.id, { domains });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { status: 'error', errorMessage: message };
