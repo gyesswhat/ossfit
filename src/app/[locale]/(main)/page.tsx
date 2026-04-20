@@ -4,20 +4,33 @@ import { notFound, redirect } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { routing } from '@/i18n/routing';
 import { auth } from '@/lib/auth';
+import {
+  buildSearchQuery,
+  isRateLimitError,
+  RECOMMENDED_LABELS,
+  searchIssues,
+  type SearchIssuesResult,
+} from '@/lib/github/search';
 import { ensureUserProfile, getUserProfile } from '@/lib/profile/service';
+import { FeedFilters } from './feed-filters';
+import { IssueCard } from './issue-card';
 import { LogoutButton } from './logout-button';
 import { ReanalyzeButton } from './reanalyze-button';
 
+type SearchParamRecord = Record<string, string | string[] | undefined>;
+
 /**
- * [목적] 보호된 메인 홈. 세션이 없으면 로그인으로, 온보딩 미완료면 온보딩으로 리다이렉트한다.
- *        최초 진입 시 GitHub 활동을 분석해 user_profiles를 생성한다.
- * [주의] proxy.ts에서 1차 가드가 걸려 있지만 Server Action 경로 등으로 우회될 수 있어 페이지에서도 재확인한다.
- *        access_token이 JWT에서 유실된 경우 분석을 건너뛰고 기존 프로필만 조회한다.
+ * [목적] 보호된 메인 피드. 사용자 스택과 URL 필터를 합쳐 GitHub Search를 호출하고
+ *        프로필 헤더 + 필터 + 이슈 카드 그리드를 렌더한다.
+ * [주의] proxy.ts에서 1차 가드가 걸려 있지만 페이지에서도 세션·온보딩을 재확인한다.
+ *        Search 실패 시(404 토큰 만료, 429 rate limit, 기타) 피드는 빈 상태로 두고 안내 메시지만 표시한다.
  */
 export default async function HomePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<SearchParamRecord>;
 }) {
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
@@ -37,25 +50,49 @@ export default async function HomePage({
     redirect(`/${locale}/onboarding`);
   }
 
-  const t = await getTranslations('Home');
+  const resolvedSearchParams = await searchParams;
+  const labelOverrides = readListParam(resolvedSearchParams.label);
+  const languageOverrides = readListParam(resolvedSearchParams.language);
+
+  const tags = languageOverrides.length > 0 ? languageOverrides : profile.stackTags;
+  const labels =
+    labelOverrides.length > 0 ? labelOverrides : ['good first issue'];
+  const query = buildSearchQuery(tags, labels);
+
+  let result: SearchIssuesResult | null = null;
+  let errorKey: 'rate-limit' | 'missing-token' | 'unknown' | null = null;
+
+  if (!session.accessToken) {
+    errorKey = 'missing-token';
+  } else if (tags.length === 0) {
+    // 스택 태그가 없으면 검색을 시도하지 않는다 — 빈 쿼리는 노이즈만 늘린다.
+    result = { issueCount: 0, issues: [] };
+  } else {
+    try {
+      result = await searchIssues(query, session.accessToken);
+    } catch (error) {
+      errorKey = isRateLimitError(error) ? 'rate-limit' : 'unknown';
+    }
+  }
+
+  const t = await getTranslations('Feed');
+  const homeT = await getTranslations('Home');
   const profileT = await getTranslations('Profile');
   const displayName = session.user.name ?? session.user.email ?? 'OSSFIT';
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-8 px-6 py-24 text-center">
-      <h1 className="max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-        {t('welcome')}
-      </h1>
-      <p className="max-w-xl text-lg text-muted-foreground">{t('tagline')}</p>
-      <span className="inline-flex items-center rounded-full bg-accent px-4 py-1 text-sm font-medium text-accent-foreground">
-        {t('greeting', { name: displayName })}
-      </span>
-      <section className="flex flex-col items-center gap-3">
-        <p className="text-sm text-muted-foreground">
-          {profileT('levelLabel', { level: profile.level })}
-        </p>
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
+      <header className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            {homeT('greeting', { name: displayName })}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {profileT('levelLabel', { level: profile.level })}
+          </p>
+        </div>
         {profile.stackTags.length > 0 ? (
-          <div className="flex flex-wrap justify-center gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {profile.stackTags.map((tag) => (
               <Badge key={tag} variant="accent">
                 {tag}
@@ -63,13 +100,70 @@ export default async function HomePage({
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            {profileT('stackEmpty')}
+          <p className="text-sm text-muted-foreground">{profileT('stackEmpty')}</p>
+        )}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <ReanalyzeButton locale={locale} />
+          <LogoutButton locale={locale} />
+        </div>
+      </header>
+
+      <FeedFilters
+        availableLanguages={profile.stackTags}
+        defaultLabels={[RECOMMENDED_LABELS[0]]}
+      />
+
+      <section aria-labelledby="feed-heading" className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 id="feed-heading" className="text-lg font-semibold text-foreground">
+            {t('title')}
+          </h2>
+          {result && (
+            <span className="text-xs text-muted-foreground">
+              {t('total', { count: result.issueCount })}
+            </span>
+          )}
+        </div>
+
+        {errorKey === 'rate-limit' && (
+          <ErrorPanel message={t('errorRateLimit')} />
+        )}
+        {errorKey === 'missing-token' && (
+          <ErrorPanel message={t('errorMissingToken')} />
+        )}
+        {errorKey === 'unknown' && <ErrorPanel message={t('errorUnknown')} />}
+
+        {result && result.issues.length === 0 && !errorKey && (
+          <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            {tags.length === 0 ? t('emptyNoStack') : t('empty')}
           </p>
         )}
+
+        {result && result.issues.length > 0 && (
+          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {result.issues.map((issue) => (
+              <IssueCard key={issue.id} issue={issue} />
+            ))}
+          </ul>
+        )}
       </section>
-      <ReanalyzeButton locale={locale} />
-      <LogoutButton locale={locale} />
     </main>
+  );
+}
+
+function readListParam(value: string | string[] | undefined): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter((v) => v.length > 0);
+  return value.length > 0 ? [value] : [];
+}
+
+function ErrorPanel({ message }: { message: string }) {
+  return (
+    <p
+      role="alert"
+      className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+    >
+      {message}
+    </p>
   );
 }

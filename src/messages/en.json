@@ -56,5 +56,18 @@
     "back": "Back",
     "submit": "Get started",
     "submitting": "Saving..."
+  },
+  "Feed": {
+    "title": "Recommended issues",
+    "total": "{count, plural, =0 {No issues} one {# issue} other {# issues}} total",
+    "filterLabels": "Labels",
+    "filterLanguages": "Languages",
+    "clearLanguages": "Clear language filter",
+    "createdAt": "Opened {date}",
+    "empty": "No issues match the current filters. Try adjusting them.",
+    "emptyNoStack": "No stack tags yet, so we can't recommend issues. Add tags from your profile.",
+    "errorRateLimit": "GitHub search quota exceeded. Please try again later.",
+    "errorMissingToken": "GitHub access token expired. Please sign in again.",
+    "errorUnknown": "Failed to load issues. Please try again later."
   }
 }

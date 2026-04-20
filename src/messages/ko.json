@@ -56,5 +56,18 @@
     "back": "이전",
     "submit": "시작하기",
     "submitting": "저장 중..."
+  },
+  "Feed": {
+    "title": "추천 이슈",
+    "total": "총 {count, plural, =0 {0개} other {#개}}",
+    "filterLabels": "라벨",
+    "filterLanguages": "언어",
+    "clearLanguages": "언어 필터 초기화",
+    "createdAt": "생성일 {date}",
+    "empty": "조건에 맞는 이슈가 아직 없어요. 필터를 조정해 보세요.",
+    "emptyNoStack": "스택 태그가 없어 추천을 만들 수 없어요. 프로필에서 스택을 추가해 주세요.",
+    "errorRateLimit": "GitHub 검색 한도를 초과했어요. 잠시 후 다시 시도해 주세요.",
+    "errorMissingToken": "GitHub 액세스 토큰이 만료되었어요. 다시 로그인해 주세요.",
+    "errorUnknown": "이슈를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."
   }
 }
