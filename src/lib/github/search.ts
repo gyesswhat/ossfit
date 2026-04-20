@@ -44,6 +44,38 @@ export function isMinStarsOption(value: number): value is MinStarsOption {
 }
 
 /**
+ * "진짜 오픈소스" 기본 기준. 별 10개 이상을 요구해 장난감·dead repo를 컷.
+ */
+export const DEFAULT_MIN_STARS = 10;
+
+/**
+ * 이슈 `updated:>` 한정자와 레포 `pushedAt` 클라이언트 컷에 공통으로 쓰는 기본 신선도(일수).
+ * GitHub Issues Search는 repo-pushed 한정자를 지원하지 않으므로 repo 쪽은 결과 필터링으로 처리한다.
+ */
+export const DEFAULT_FRESHNESS_DAYS = 180;
+
+/**
+ * 입문 레벨 기본 댓글 상한. 이미 오래 논의된 이슈보다 손이 가지 않은 이슈가 입문자에게 진입하기 쉽다.
+ */
+export const BEGINNER_MAX_COMMENTS = 5;
+
+/**
+ * 기여를 전제한 "진짜 오픈소스" 라이선스 화이트리스트. 순서는 일반성/커뮤니티 규모 기준.
+ * GitHub Search는 qualifier 레벨 OR를 지원하지 않으므로 caller가 병렬 쿼리로 쪼개 처리한다.
+ */
+export const LICENSE_WHITELIST = [
+  'mit',
+  'apache-2.0',
+  'bsd-3-clause',
+  'bsd-2-clause',
+  'gpl-3.0',
+  'lgpl-3.0',
+  'mpl-2.0',
+  'isc',
+] as const;
+export type LicenseSlug = (typeof LICENSE_WHITELIST)[number];
+
+/**
  * 한 페이지당 반환할 이슈 수. GitHub Search API의 페이지네이션 최대값(100)과 UI 밀도 사이의 절충.
  */
 export const PAGE_SIZE = 30;
@@ -65,7 +97,34 @@ export type BuildSearchQueryOptions = {
   sort?: SortOption;
   minStars?: number;
   noAssignee?: boolean;
+  /**
+   * 단일 라이선스 슬러그. `license:mit` 형태로 쿼리에 추가된다.
+   * 여러 라이선스를 OR 하려면 caller에서 슬러그별 쿼리를 분리해야 한다.
+   */
+  license?: string;
+  /**
+   * true가 아닌 false로 주면 `-is:fork`가 쿼리에 추가된다.
+   * (진짜 OSS 기준: fork는 상류가 아니므로 기여 후보에서 제외.)
+   */
+  isFork?: false;
+  /**
+   * 이슈 신선도 컷. 양의 정수면 `updated:>YYYY-MM-DD`(오늘 − N일) 한정자가 추가된다.
+   */
+  freshnessWindowDays?: number;
+  /**
+   * 댓글 수 상한. 양의 정수면 `comments:<N` 한정자가 추가된다 (입문 레벨용).
+   */
+  maxComments?: number;
 };
+
+/**
+ * [목적] (today − days)의 ISO 날짜(YYYY-MM-DD)를 반환한다. GitHub Search `updated:>` 한정자용.
+ */
+export function isoDateDaysAgo(days: number, now: Date = new Date()): string {
+  const d = new Date(now.getTime());
+  d.setUTCDate(d.getUTCDate() - Math.max(0, Math.floor(days)));
+  return d.toISOString().slice(0, 10);
+}
 
 /**
  * [목적] 카탈로그 기반 스택 태그 + 라벨 + 보조 옵션 → GitHub Search 쿼리 문자열.
@@ -74,6 +133,8 @@ export type BuildSearchQueryOptions = {
  * [주의] 태그가 0개면 반환 문자열은 필수 한정자만 포함하므로 GitHub이 422를 돌려줄 수 있다.
  *        호출 측에서 태그가 비었을 때 검색을 아예 건너뛰도록 분기해야 한다.
  *        `minStars`는 음수/NaN이면 무시된다. `sort`가 'best-match'이면 한정자를 추가하지 않는다.
+ *        GitHub Search는 qualifier OR를 지원하지 않으므로 language/topic/license의 OR는 caller가
+ *        각각 병렬 쿼리로 쪼개서 호출한 뒤 결과를 머지해야 한다 — 이 함수는 단일 조합만 다룬다.
  */
 export function buildSearchQuery(
   tags: readonly string[],
@@ -98,13 +159,32 @@ export function buildSearchQuery(
     parts.push(`label:${quoteIfNeeded(label)}`);
   }
 
+  const license = options.license?.trim();
+  if (license) {
+    parts.push(`license:${quoteIfNeeded(license)}`);
+  }
+
   const minStars = options.minStars;
   if (typeof minStars === 'number' && Number.isFinite(minStars) && minStars > 0) {
     parts.push(`stars:>=${Math.floor(minStars)}`);
   }
 
+  if (options.isFork === false) {
+    parts.push('-is:fork');
+  }
+
   if (options.noAssignee) {
     parts.push('no:assignee');
+  }
+
+  const freshness = options.freshnessWindowDays;
+  if (typeof freshness === 'number' && Number.isFinite(freshness) && freshness > 0) {
+    parts.push(`updated:>${isoDateDaysAgo(freshness)}`);
+  }
+
+  const maxComments = options.maxComments;
+  if (typeof maxComments === 'number' && Number.isFinite(maxComments) && maxComments > 0) {
+    parts.push(`comments:<${Math.floor(maxComments)}`);
   }
 
   parts.push('type:issue', 'state:open', 'archived:false');
@@ -129,6 +209,7 @@ export type IssueResult = {
     nameWithOwner: string;
     stargazerCount: number;
     primaryLanguage: string | null;
+    pushedAt: string;
   };
   labels: IssueLabel[];
 };
@@ -152,6 +233,7 @@ type GraphQLSearchNode = {
   repository: {
     nameWithOwner: string;
     stargazerCount: number;
+    pushedAt: string | null;
     primaryLanguage: { name: string } | null;
   } | null;
   labels: { nodes: Array<{ name: string; color: string } | null> | null } | null;
@@ -187,6 +269,7 @@ const SEARCH_QUERY = /* GraphQL */ `
           repository {
             nameWithOwner
             stargazerCount
+            pushedAt
             primaryLanguage {
               name
             }
@@ -295,6 +378,7 @@ export async function searchIssues(
         nameWithOwner: node.repository.nameWithOwner,
         stargazerCount: node.repository.stargazerCount,
         primaryLanguage: node.repository.primaryLanguage?.name ?? null,
+        pushedAt: node.repository.pushedAt ?? node.createdAt,
       },
       labels: (node.labels?.nodes ?? [])
         .filter((label): label is { name: string; color: string } => label !== null)
@@ -319,4 +403,247 @@ export async function searchIssues(
 export function totalPageCount(issueCount: number, perPage = PAGE_SIZE): number {
   const capped = Math.min(issueCount, GITHUB_SEARCH_RESULT_CAP);
   return Math.max(1, Math.ceil(capped / Math.max(perPage, 1)));
+}
+
+/**
+ * OR-병렬 검색 한 sub-query에서 미리 끌어올 이슈 개수 상한.
+ * 너무 크면 rate limit, 너무 작으면 머지 후 페이지네이션이 일찍 끊긴다.
+ */
+export const MULTI_PREFETCH_PER_SUBQUERY = 120;
+
+export type SearchIssuesMultiInput = {
+  languages: readonly string[];
+  topics: readonly string[];
+  licenses: readonly string[];
+  labels: readonly string[];
+};
+
+export type SearchIssuesMultiOptions = {
+  sort?: SortOption;
+  minStars?: number;
+  noAssignee?: boolean;
+  freshnessWindowDays?: number;
+  repoStaleThresholdDays?: number;
+  maxComments?: number;
+  page?: number;
+  perPage?: number;
+  /**
+   * sub-query 당 프리패치 상한 override. 테스트/튜닝용.
+   */
+  prefetchPerSubQuery?: number;
+};
+
+/**
+ * [목적] 여러 언어 × 토픽 × 라이선스 조합에 대해 GitHub Search를 병렬 호출하고,
+ *        이슈 id로 dedup 한 뒤 레포 pushedAt 기준으로 stale repo를 클라이언트 사이드에서 컷.
+ *        GitHub Search는 qualifier 레벨 OR/`repo pushed` 한정자를 지원하지 않아 이런 머지-컷 구조가 필요하다.
+ * [주의] 각 sub-query는 프리패치 상한(prefetchPerSubQuery)까지 끌어와 머지 풀을 만든다.
+ *        풀이 상한을 넘어가면 pagination이 풀 기준으로 정확하지만 "진짜 전체"는 아님을 감안.
+ *        rate-limit이 한 sub-query라도 발생하면 예외가 전체로 전파된다.
+ */
+export async function searchIssuesMulti(
+  input: SearchIssuesMultiInput,
+  accessToken: string,
+  options: SearchIssuesMultiOptions = {},
+): Promise<SearchIssuesResult> {
+  const page = Math.max(1, Math.floor(options.page ?? 1));
+  const perPage = Math.min(100, Math.max(1, Math.floor(options.perPage ?? PAGE_SIZE)));
+  const prefetch = Math.min(
+    GITHUB_SEARCH_RESULT_CAP,
+    Math.max(perPage, Math.floor(options.prefetchPerSubQuery ?? MULTI_PREFETCH_PER_SUBQUERY)),
+  );
+
+  const languageCombos = input.languages.length > 0 ? input.languages : [null];
+  const topicCombos = input.topics.length > 0 ? input.topics : [null];
+  const licenseCombos = input.licenses.length > 0 ? input.licenses : [null];
+
+  const subQueries: string[] = [];
+  for (const language of languageCombos) {
+    for (const topic of topicCombos) {
+      for (const license of licenseCombos) {
+        const tags: string[] = [];
+        if (language) tags.push(language);
+        if (topic) tags.push(topic);
+        subQueries.push(
+          buildSearchQuery(tags, input.labels, {
+            sort: options.sort,
+            minStars: options.minStars,
+            noAssignee: options.noAssignee,
+            freshnessWindowDays: options.freshnessWindowDays,
+            maxComments: options.maxComments,
+            license: license ?? undefined,
+            isFork: false,
+          }),
+        );
+      }
+    }
+  }
+
+  const client = graphql.defaults({
+    headers: { authorization: `bearer ${accessToken}` },
+  });
+
+  const fetched = await Promise.all(
+    subQueries.map((query) => fetchUpTo(client, query, prefetch)),
+  );
+
+  const merged = new Map<string, IssueResult>();
+  for (const issues of fetched) {
+    for (const issue of issues) {
+      if (!merged.has(issue.id)) merged.set(issue.id, issue);
+    }
+  }
+
+  const repoStaleThreshold = options.repoStaleThresholdDays ?? DEFAULT_FRESHNESS_DAYS;
+  const repoCutoff =
+    repoStaleThreshold > 0
+      ? new Date(isoDateDaysAgo(repoStaleThreshold)).getTime()
+      : null;
+
+  const filtered: IssueResult[] = [];
+  for (const issue of merged.values()) {
+    if (repoCutoff !== null) {
+      const pushedAtMs = Date.parse(issue.repository.pushedAt);
+      if (Number.isFinite(pushedAtMs) && pushedAtMs < repoCutoff) continue;
+    }
+    filtered.push(issue);
+  }
+
+  const sorted = sortMergedIssues(filtered, options.sort ?? DEFAULT_SORT);
+  const poolSize = sorted.length;
+  const startIndex = (page - 1) * perPage;
+  const endIndex = startIndex + perPage;
+  const pageIssues = sorted.slice(startIndex, endIndex);
+
+  return {
+    issueCount: poolSize,
+    issues: pageIssues,
+    page,
+    perPage,
+    hasPreviousPage: page > 1,
+    hasNextPage: endIndex < poolSize,
+  };
+}
+
+type GraphQLClient = ReturnType<typeof graphql.defaults>;
+
+async function fetchUpTo(
+  client: GraphQLClient,
+  query: string,
+  limit: number,
+): Promise<IssueResult[]> {
+  const pageSize = Math.min(100, Math.max(1, limit));
+  const results: IssueResult[] = [];
+  let cursor: string | null = null;
+  while (results.length < limit) {
+    const remaining = limit - results.length;
+    const response: GraphQLSearchResponse = await client(SEARCH_QUERY, {
+      searchQuery: query,
+      first: Math.min(pageSize, remaining),
+      after: cursor,
+    });
+    for (const node of response.search.nodes ?? []) {
+      if (!node || node.__typename !== 'Issue' || !node.repository) continue;
+      results.push({
+        id: node.id,
+        title: node.title,
+        url: node.url,
+        number: node.number,
+        createdAt: node.createdAt,
+        repository: {
+          nameWithOwner: node.repository.nameWithOwner,
+          stargazerCount: node.repository.stargazerCount,
+          primaryLanguage: node.repository.primaryLanguage?.name ?? null,
+          pushedAt: node.repository.pushedAt ?? node.createdAt,
+        },
+        labels: (node.labels?.nodes ?? [])
+          .filter((label): label is { name: string; color: string } => label !== null)
+          .map((label) => ({ name: label.name, color: label.color })),
+      });
+    }
+    cursor = response.search.pageInfo.endCursor;
+    if (!response.search.pageInfo.hasNextPage || !cursor) break;
+  }
+  return results;
+}
+
+function sortMergedIssues(issues: IssueResult[], sort: SortOption): IssueResult[] {
+  const arr = issues.slice();
+  switch (sort) {
+    case 'created-desc':
+      return arr.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    case 'created-asc':
+      return arr.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    case 'updated-desc':
+      return arr.sort(
+        (a, b) => Date.parse(b.repository.pushedAt) - Date.parse(a.repository.pushedAt),
+      );
+    case 'best-match':
+    case 'comments-desc':
+    case 'reactions-desc':
+    default:
+      return arr;
+  }
+}
+
+export type BuildDisplayQueryInput = {
+  languages: readonly string[];
+  topics: readonly string[];
+  licenses: readonly string[];
+  labels: readonly string[];
+  sort?: SortOption;
+  minStars?: number;
+  noAssignee?: boolean;
+  freshnessWindowDays?: number;
+  maxComments?: number;
+  excludeForks?: boolean;
+};
+
+/**
+ * [목적] 사용자에게 보여줄 '통합 쿼리 문자열'을 만든다. 실제 실행은 병렬로 쪼개지지만
+ *        UX상 전체 조건이 한눈에 보이도록 OR 그룹을 괄호로 묶어 노출한다.
+ */
+export function buildDisplayQuery(input: BuildDisplayQueryInput): string {
+  const parts: string[] = [];
+
+  if (input.languages.length > 0) {
+    parts.push(orGroup(input.languages.map((lang) => `language:${quoteIfNeeded(lang)}`)));
+  }
+  if (input.topics.length > 0) {
+    parts.push(orGroup(input.topics.map((topic) => `topic:${quoteIfNeeded(topic)}`)));
+  }
+  for (const label of input.labels) {
+    const trimmed = label.trim();
+    if (trimmed) parts.push(`label:${quoteIfNeeded(trimmed)}`);
+  }
+  if (input.licenses.length > 0) {
+    parts.push(orGroup(input.licenses.map((license) => `license:${quoteIfNeeded(license)}`)));
+  }
+  if (typeof input.minStars === 'number' && input.minStars > 0) {
+    parts.push(`stars:>=${Math.floor(input.minStars)}`);
+  }
+  if (input.excludeForks) {
+    parts.push('-is:fork');
+  }
+  if (input.noAssignee) {
+    parts.push('no:assignee');
+  }
+  if (
+    typeof input.freshnessWindowDays === 'number' &&
+    input.freshnessWindowDays > 0
+  ) {
+    parts.push(`updated:>${isoDateDaysAgo(input.freshnessWindowDays)}`);
+  }
+  if (typeof input.maxComments === 'number' && input.maxComments > 0) {
+    parts.push(`comments:<${Math.floor(input.maxComments)}`);
+  }
+  parts.push('type:issue', 'state:open', 'archived:false');
+  const sort = input.sort ?? 'best-match';
+  if (sort !== 'best-match') parts.push(`sort:${sort}`);
+  return parts.join(' ');
+}
+
+function orGroup(parts: readonly string[]): string {
+  if (parts.length === 1 && parts[0]) return parts[0];
+  return `(${parts.join(' OR ')})`;
 }

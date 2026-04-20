@@ -14,12 +14,16 @@ type Props = {
   languages: readonly string[];
   topics: readonly string[];
   labels: readonly string[];
+  licenses: readonly string[];
   languageSource: ChipSource;
   topicSource: ChipSource;
   labelSource: ChipSource;
   sort: SortOption;
   minStars: number;
   noAssignee: boolean;
+  freshnessWindowDays: number;
+  excludeForks: boolean;
+  beginnerCommentsCap: number | null;
   rawQuery: string;
   hasStack: boolean;
 };
@@ -33,12 +37,16 @@ export function SearchCriteria({
   languages,
   topics,
   labels,
+  licenses,
   languageSource,
   topicSource,
   labelSource,
   sort,
   minStars,
   noAssignee,
+  freshnessWindowDays,
+  excludeForks,
+  beginnerCommentsCap,
   rawQuery,
   hasStack,
 }: Props) {
@@ -105,6 +113,30 @@ export function SearchCriteria({
             label={t('filterAssignee')}
             value={noAssignee ? t('assigneeUnassigned') : t('assigneeAny')}
           />
+          <SimpleRow
+            label={t('filterLicense')}
+            value={
+              licenses.length > 0 ? licenses.join(' / ') : t('licenseAny')
+            }
+          />
+          <SimpleRow
+            label={t('filterFreshness')}
+            value={
+              freshnessWindowDays > 0
+                ? t('freshnessValue', { days: freshnessWindowDays })
+                : t('licenseAny')
+            }
+          />
+          <SimpleRow
+            label={t('filterFork')}
+            value={excludeForks ? t('forkExcluded') : t('assigneeAny')}
+          />
+          {beginnerCommentsCap !== null && (
+            <SimpleRow
+              label={t('filterBeginnerComments')}
+              value={t('beginnerCommentsValue', { max: beginnerCommentsCap })}
+            />
+          )}
         </dl>
       )}
 

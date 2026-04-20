@@ -8,13 +8,17 @@ import { auth } from '@/lib/auth';
 import { getBookmarkedIssueUrls } from '@/lib/bookmarks/service';
 import { classifyTag, displayNameForSlug } from '@/lib/github/catalog';
 import {
-  buildSearchQuery,
+  BEGINNER_MAX_COMMENTS,
+  buildDisplayQuery,
+  DEFAULT_FRESHNESS_DAYS,
+  DEFAULT_MIN_STARS,
   DEFAULT_SORT,
   isRateLimitError,
   isSortOption,
+  LICENSE_WHITELIST,
   MIN_STARS_OPTIONS,
   RECOMMENDED_LABELS,
-  searchIssues,
+  searchIssuesMulti,
   totalPageCount,
   type SearchIssuesResult,
   type SortOption,
@@ -83,15 +87,30 @@ export default async function HomePage({
   const sort: SortOption =
     sortParam && isSortOption(sortParam) ? sortParam : DEFAULT_SORT;
 
-  const minStars = readMinStars(readScalarParam(resolvedSearchParams.minStars));
+  const minStarsOverride = readMinStars(
+    readScalarParam(resolvedSearchParams.minStars),
+  );
+  const minStars = minStarsOverride > 0 ? minStarsOverride : DEFAULT_MIN_STARS;
   const noAssignee = readScalarParam(resolvedSearchParams.noAssignee) === '1';
   const page = readPage(readScalarParam(resolvedSearchParams.page));
 
   const tags = [...effectiveLanguages, ...effectiveTopics];
-  const query = buildSearchQuery(tags, labels, {
+  const licenses = [...LICENSE_WHITELIST];
+  const isBeginner = profile.level === '입문';
+  const maxComments = isBeginner ? BEGINNER_MAX_COMMENTS : undefined;
+  const freshnessWindowDays = DEFAULT_FRESHNESS_DAYS;
+
+  const rawQuery = buildDisplayQuery({
+    languages: effectiveLanguages,
+    topics: effectiveTopics,
+    licenses,
+    labels,
     sort,
     minStars,
     noAssignee,
+    freshnessWindowDays,
+    maxComments,
+    excludeForks: true,
   });
 
   let result: SearchIssuesResult | null = null;
@@ -110,14 +129,31 @@ export default async function HomePage({
     };
   } else {
     try {
-      result = await searchIssues(query, session.accessToken, { page });
+      result = await searchIssuesMulti(
+        {
+          languages: effectiveLanguages,
+          topics: effectiveTopics,
+          licenses,
+          labels,
+        },
+        session.accessToken,
+        {
+          sort,
+          minStars,
+          noAssignee,
+          freshnessWindowDays,
+          repoStaleThresholdDays: DEFAULT_FRESHNESS_DAYS,
+          maxComments,
+          page,
+        },
+      );
     } catch (error) {
       if (isRateLimitError(error)) {
-        console.warn('[page/feed] rate limited', { query });
+        console.warn('[page/feed] rate limited', { rawQuery });
         errorKey = 'rate-limit';
       } else {
         console.error('[page/feed] search failed', {
-          query,
+          rawQuery,
           tags,
           labels,
           stackTags: profile.stackTags,
@@ -207,13 +243,17 @@ export default async function HomePage({
         languages={effectiveLanguages}
         topics={effectiveTopics}
         labels={labels}
+        licenses={licenses}
         languageSource={languageOverrides.length > 0 ? 'custom' : 'default'}
         topicSource={topicOverrides.length > 0 ? 'custom' : 'default'}
         labelSource={labelOverrides.length > 0 ? 'custom' : 'default'}
         sort={sort}
         minStars={minStars}
         noAssignee={noAssignee}
-        rawQuery={query}
+        freshnessWindowDays={freshnessWindowDays}
+        excludeForks
+        beginnerCommentsCap={maxComments ?? null}
+        rawQuery={rawQuery}
         hasStack={tags.length > 0}
       />
 
