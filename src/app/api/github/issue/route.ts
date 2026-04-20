@@ -42,8 +42,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(issue);
   } catch (error) {
     if (isRateLimitError(error)) {
+      console.warn('[api/github/issue] rate limited', {
+        repo: repoParam,
+        number,
+      });
       return NextResponse.json({ error: 'rate-limited' }, { status: 429 });
     }
+    console.error('[api/github/issue] fetch failed', {
+      repo: repoParam,
+      number,
+      error,
+    });
     const message = error instanceof Error ? error.message : 'fetch-failed';
     return NextResponse.json({ error: message }, { status: 502 });
   }

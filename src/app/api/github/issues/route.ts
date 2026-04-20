@@ -44,8 +44,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ query, ...result });
   } catch (error) {
     if (isRateLimitError(error)) {
+      console.warn('[api/github/issues] rate limited', { query });
       return NextResponse.json({ error: 'rate-limited', query }, { status: 429 });
     }
+    console.error('[api/github/issues] search failed', {
+      query,
+      tags,
+      labels,
+      stackTags: profile.stackTags,
+      error,
+    });
     const message = error instanceof Error ? error.message : 'search-failed';
     return NextResponse.json({ error: message, query }, { status: 502 });
   }
