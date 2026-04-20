@@ -1,5 +1,6 @@
 'use client';
 
+import { SlidersHorizontal } from 'lucide-react';
 import { useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from '@/i18n/navigation';
@@ -12,9 +13,9 @@ type Props = {
 };
 
 /**
- * [목적] 라벨/언어 토글 필터. 변경 시 URL searchParams로 상태를 영속화하고 페이지를 재검증한다.
- * [주의] next-intl의 router/pathname을 사용해 locale 프리픽스가 자동 유지되도록 한다.
- *        선택값이 비어 있으면 기본값(`good first issue`, 프로필 스택 전체)이 서버에서 적용된다.
+ * [목적] 라벨/언어 토글 필터. 섹션 헤더로 역할을 명시해 사용자가 어디서 조정하는지 곧바로 인지하게 한다.
+ *        변경은 URL searchParams로 영속화하고 RSC를 재검증한다.
+ * [주의] 한 그룹이 0개면 `-Empty` 힌트를 노출해 "클릭해서 선택" 액션을 유도한다.
  */
 export function FeedFilters({ availableLanguages, defaultLabels }: Props) {
   const t = useTranslations('Feed');
@@ -43,44 +44,29 @@ export function FeedFilters({ availableLanguages, defaultLabels }: Props) {
 
   return (
     <section
-      className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
+      className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm"
       aria-busy={isPending}
     >
-      <div className="flex flex-wrap items-center gap-2">
+      <header className="flex items-center gap-2 border-b border-border pb-3">
+        <SlidersHorizontal className="size-4 text-primary" aria-hidden />
+        <h2 className="text-sm font-semibold text-foreground">
+          {t('filtersHeading')}
+        </h2>
+        <span className="text-xs text-muted-foreground">{t('filtersHint')}</span>
+      </header>
+
+      <div className="flex flex-col gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('filterLabels')}
         </span>
-        {RECOMMENDED_LABELS.map((label) => {
-          const active = selectedLabels.includes(label);
-          return (
-            <button
-              key={label}
-              type="button"
-              onClick={() => update('label', label, !active)}
-              aria-pressed={active}
-              className={
-                active
-                  ? 'rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground'
-                  : 'rounded-full border border-input bg-background px-3 py-1 text-xs font-medium text-foreground hover:bg-accent'
-              }
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
-      {availableLanguages.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('filterLanguages')}
-          </span>
-          {availableLanguages.map((language) => {
-            const active = selectedLanguages.includes(language);
+          {RECOMMENDED_LABELS.map((label) => {
+            const active = selectedLabels.includes(label);
             return (
               <button
-                key={language}
+                key={label}
                 type="button"
-                onClick={() => update('language', language, !active)}
+                onClick={() => update('label', label, !active)}
                 aria-pressed={active}
                 className={
                   active
@@ -88,25 +74,60 @@ export function FeedFilters({ availableLanguages, defaultLabels }: Props) {
                     : 'rounded-full border border-input bg-background px-3 py-1 text-xs font-medium text-foreground hover:bg-accent'
                 }
               >
-                {language}
+                {label}
               </button>
             );
           })}
-          {selectedLanguages.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                const next = new URLSearchParams(searchParams);
-                next.delete('language');
-                startTransition(() => {
-                  router.replace(`${pathname}?${next.toString()}`);
-                });
-              }}
-              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-            >
-              {t('clearLanguages')}
-            </button>
+          {selectedLabels.length === 0 && (
+            <span className="text-xs text-destructive">
+              {t('filterLabelsEmpty')}
+            </span>
           )}
+        </div>
+      </div>
+
+      {availableLanguages.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t('filterLanguages')}
+            </span>
+            {selectedLanguages.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const next = new URLSearchParams(searchParams);
+                  next.delete('language');
+                  startTransition(() => {
+                    router.replace(`${pathname}?${next.toString()}`);
+                  });
+                }}
+                className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+              >
+                {t('clearLanguages')}
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {availableLanguages.map((language) => {
+              const active = selectedLanguages.includes(language);
+              return (
+                <button
+                  key={language}
+                  type="button"
+                  onClick={() => update('language', language, !active)}
+                  aria-pressed={active}
+                  className={
+                    active
+                      ? 'rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground'
+                      : 'rounded-full border border-input bg-background px-3 py-1 text-xs font-medium text-foreground hover:bg-accent'
+                  }
+                >
+                  {language}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </section>

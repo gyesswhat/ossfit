@@ -169,9 +169,20 @@ export default async function HomePage({
         {errorKey === 'unknown' && <ErrorPanel message={t('errorUnknown')} />}
 
         {result && result.issues.length === 0 && !errorKey && (
-          <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            {tags.length === 0 ? t('emptyNoStack') : t('empty')}
-          </p>
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              {tags.length === 0 ? t('emptyNoStack') : t('empty')}
+            </p>
+            {tags.length > 0 &&
+              (labelOverrides.length > 0 || languageOverrides.length > 0) && (
+                <Link
+                  href="/"
+                  className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground hover:bg-accent"
+                >
+                  {t('clearAllFilters')}
+                </Link>
+              )}
+          </div>
         )}
 
         {result && result.issues.length > 0 && (

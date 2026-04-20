@@ -164,7 +164,8 @@ export function TagPicker({
                 {hasFilter ? t('noMatch') : t('empty')}
               </p>
             ) : (
-              <ul className="flex max-h-56 flex-wrap gap-1.5 overflow-y-auto rounded-md border border-border p-2">
+              <div className="max-h-56 overflow-y-auto rounded-md border border-border p-2">
+                <ul className="flex flex-wrap gap-1.5">
                 {group.items.map((item) => {
                   const selected = selectedSet.has(item.slug);
                   return (
@@ -186,7 +187,8 @@ export function TagPicker({
                     </li>
                   );
                 })}
-              </ul>
+                </ul>
+              </div>
             )}
           </section>
         ))}
