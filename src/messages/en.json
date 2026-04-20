@@ -68,6 +68,37 @@
     "emptyNoStack": "No stack tags yet, so we can't recommend issues. Add tags from your profile.",
     "errorRateLimit": "GitHub search quota exceeded. Please try again later.",
     "errorMissingToken": "GitHub access token expired. Please sign in again.",
-    "errorUnknown": "Failed to load issues. Please try again later."
+    "errorUnknown": "Failed to load issues. Please try again later.",
+    "openIssue": "Open issue details for {repo} #{number}",
+    "close": "Close",
+    "bookmarked": "Bookmarked",
+    "bookmarkAdd": "Bookmark",
+    "bookmarkRemove": "Remove bookmark",
+    "bookmarkError": "Couldn't update bookmark. Please try again later.",
+    "bookmarkUnauthenticated": "Sign in required.",
+    "viewOnGithub": "View on GitHub",
+    "detailLoading": "Loading issue body...",
+    "guideLink": "Contribution guide"
+  },
+  "Guide": {
+    "title": "Contribution guide",
+    "intro": "New to open source? Follow these five steps end-to-end.",
+    "toc": "Contents",
+    "step1Title": "1. Fork the repository",
+    "step1Description": "Fork the repository that owns the issue to your account using the Fork button in the top right on GitHub.",
+    "step2Title": "2. Clone locally",
+    "step2Description": "Download your fork to your machine. Replace {user} with your GitHub username.",
+    "step3Title": "3. Create a working branch",
+    "step3Description": "Never commit directly to main. Create a dedicated branch for your change.",
+    "step4Title": "4. Commit your change",
+    "step4Description": "Commit in small steps and write a one-line message that captures why you made the change.",
+    "step5Title": "5. Open a pull request",
+    "step5Description": "Click Compare & pull request on GitHub. Reference the issue number in the body so reviewers get the context.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "tipTitle": "Before you start",
+    "tip1": "Comment on the issue first so your work doesn't overlap with someone else's.",
+    "tip2": "If the repo links a CONTRIBUTING.md, read it before opening a PR.",
+    "tip3": "Keep PRs small and focused — one change per PR."
   }
 }

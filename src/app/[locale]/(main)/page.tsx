@@ -2,8 +2,10 @@ import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound, redirect } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { Link } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { auth } from '@/lib/auth';
+import { getBookmarkedIssueUrls } from '@/lib/bookmarks/service';
 import {
   buildSearchQuery,
   isRateLimitError,
@@ -13,7 +15,7 @@ import {
 } from '@/lib/github/search';
 import { ensureUserProfile, getUserProfile } from '@/lib/profile/service';
 import { FeedFilters } from './feed-filters';
-import { IssueCard } from './issue-card';
+import { IssueFeed } from './issue-feed';
 import { LogoutButton } from './logout-button';
 import { ReanalyzeButton } from './reanalyze-button';
 
@@ -75,6 +77,15 @@ export default async function HomePage({
     }
   }
 
+  const bookmarkedUrls = result
+    ? Array.from(
+        await getBookmarkedIssueUrls(
+          session.user.id,
+          result.issues.map((issue) => issue.url),
+        ),
+      )
+    : [];
+
   const t = await getTranslations('Feed');
   const homeT = await getTranslations('Home');
   const profileT = await getTranslations('Profile');
@@ -103,6 +114,12 @@ export default async function HomePage({
           <p className="text-sm text-muted-foreground">{profileT('stackEmpty')}</p>
         )}
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link
+            href="/guide"
+            className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground hover:bg-accent"
+          >
+            {t('guideLink')}
+          </Link>
           <ReanalyzeButton locale={locale} />
           <LogoutButton locale={locale} />
         </div>
@@ -140,11 +157,11 @@ export default async function HomePage({
         )}
 
         {result && result.issues.length > 0 && (
-          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {result.issues.map((issue) => (
-              <IssueCard key={issue.id} issue={issue} />
-            ))}
-          </ul>
+          <IssueFeed
+            locale={locale}
+            issues={result.issues}
+            initialBookmarkedUrls={bookmarkedUrls}
+          />
         )}
       </section>
     </main>
