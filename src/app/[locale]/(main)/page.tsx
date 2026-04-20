@@ -120,6 +120,12 @@ export default async function HomePage({
           >
             {t('guideLink')}
           </Link>
+          <Link
+            href="/profile"
+            className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground hover:bg-accent"
+          >
+            {profileT('profileLink')}
+          </Link>
           <ReanalyzeButton locale={locale} />
           <LogoutButton locale={locale} />
         </div>

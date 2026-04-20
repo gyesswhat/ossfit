@@ -26,6 +26,7 @@
     "submitting": "Redirecting..."
   },
   "Profile": {
+    "pageTitle": "My profile",
     "levelLabel": "Current level: {level}",
     "stackEmpty": "No stack tags detected yet. Try re-analyzing.",
     "reanalyze": "Re-analyze skills",
@@ -33,7 +34,22 @@
     "reanalyzeSuccess": "Your skill profile is up to date.",
     "reanalyzeError": "Analysis failed. Please try again later.",
     "reanalyzeMissingToken": "GitHub access token expired. Please sign in again.",
-    "reanalyzeUnauthenticated": "Sign in required."
+    "reanalyzeUnauthenticated": "Sign in required.",
+    "domainsLabel": "Domains",
+    "stackSectionTitle": "Stack tags",
+    "stackSectionDescription": "Stack tags used for feed recommendations. Click to remove, or add more below.",
+    "stackPlaceholder": "e.g. typescript",
+    "addTag": "Add",
+    "removeTag": "Remove {tag}",
+    "stackSave": "Save",
+    "stackSaving": "Saving...",
+    "stackSaveSuccess": "Stack saved.",
+    "stackSaveError": "Couldn't save the stack. Please try again later.",
+    "bookmarksSectionTitle": "Bookmarks",
+    "bookmarksCount": "{count, plural, =0 {No bookmarks} one {# bookmark} other {# bookmarks}}",
+    "bookmarksEmpty": "You haven't bookmarked any issues yet. Save one from the feed.",
+    "profileLink": "My profile",
+    "backToFeed": "Back to feed"
   },
   "Onboarding": {
     "title": "Onboarding",

@@ -26,6 +26,7 @@
     "submitting": "이동 중..."
   },
   "Profile": {
+    "pageTitle": "마이 프로필",
     "levelLabel": "현재 레벨: {level}",
     "stackEmpty": "분석된 스택 태그가 없습니다. 재분석을 시도해 보세요.",
     "reanalyze": "스킬 재분석",
@@ -33,7 +34,22 @@
     "reanalyzeSuccess": "스킬 프로필이 업데이트되었습니다.",
     "reanalyzeError": "분석에 실패했습니다. 잠시 후 다시 시도해 주세요.",
     "reanalyzeMissingToken": "GitHub 액세스 토큰이 만료되었습니다. 다시 로그인해 주세요.",
-    "reanalyzeUnauthenticated": "로그인이 필요합니다."
+    "reanalyzeUnauthenticated": "로그인이 필요합니다.",
+    "domainsLabel": "관심 도메인",
+    "stackSectionTitle": "스택 태그",
+    "stackSectionDescription": "피드 추천에 사용할 스택 태그예요. 클릭해서 제거하거나 아래에서 추가할 수 있어요.",
+    "stackPlaceholder": "예: typescript",
+    "addTag": "추가",
+    "removeTag": "{tag} 제거",
+    "stackSave": "저장",
+    "stackSaving": "저장 중...",
+    "stackSaveSuccess": "스택이 저장되었습니다.",
+    "stackSaveError": "저장에 실패했어요. 잠시 후 다시 시도해 주세요.",
+    "bookmarksSectionTitle": "북마크",
+    "bookmarksCount": "총 {count, plural, =0 {0개} other {#개}}",
+    "bookmarksEmpty": "아직 저장된 북마크가 없어요. 피드에서 관심 있는 이슈를 북마크해 보세요.",
+    "profileLink": "마이 프로필",
+    "backToFeed": "피드로 돌아가기"
   },
   "Onboarding": {
     "title": "온보딩",
