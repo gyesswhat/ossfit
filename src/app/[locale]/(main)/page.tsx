@@ -76,10 +76,8 @@ export default async function HomePage({
     (tag) => classifyTag(tag) === 'topic',
   );
 
-  const effectiveLanguages =
-    languageOverrides.length > 0 ? languageOverrides : profileLanguages;
-  const effectiveTopics =
-    topicOverrides.length > 0 ? topicOverrides : profileTopics;
+  const effectiveLanguages = languageOverrides;
+  const effectiveTopics = topicOverrides;
   const labels =
     labelOverrides.length > 0 ? labelOverrides : ['good first issue'];
 
@@ -118,15 +116,6 @@ export default async function HomePage({
 
   if (!session.accessToken) {
     errorKey = 'missing-token';
-  } else if (tags.length === 0) {
-    result = {
-      issueCount: 0,
-      issues: [],
-      page: 1,
-      perPage: 30,
-      hasPreviousPage: false,
-      hasNextPage: false,
-    };
   } else {
     try {
       result = await searchIssuesMulti(
@@ -254,7 +243,7 @@ export default async function HomePage({
         excludeForks
         beginnerCommentsCap={maxComments ?? null}
         rawQuery={rawQuery}
-        hasStack={tags.length > 0}
+        hasStack
       />
 
       <FeedFilters
@@ -285,24 +274,21 @@ export default async function HomePage({
 
         {result && result.issues.length === 0 && !errorKey && (
           <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              {tags.length === 0 ? t('emptyNoStack') : t('empty')}
-            </p>
-            {tags.length > 0 &&
-              (labelOverrides.length > 0 ||
-                languageOverrides.length > 0 ||
-                topicOverrides.length > 0 ||
-                sortParam !== null ||
-                minStars > 0 ||
-                noAssignee ||
-                page > 1) && (
-                <Link
-                  href="/"
-                  className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground hover:bg-accent"
-                >
-                  {t('clearAllFilters')}
-                </Link>
-              )}
+            <p className="text-sm text-muted-foreground">{t('empty')}</p>
+            {(labelOverrides.length > 0 ||
+              languageOverrides.length > 0 ||
+              topicOverrides.length > 0 ||
+              sortParam !== null ||
+              minStarsOverride > 0 ||
+              noAssignee ||
+              page > 1) && (
+              <Link
+                href="/"
+                className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground hover:bg-accent"
+              >
+                {t('clearAllFilters')}
+              </Link>
+            )}
           </div>
         )}
 
