@@ -96,6 +96,21 @@
     "detailLoading": "Loading issue body...",
     "guideLink": "Contribution guide"
   },
+  "TagPicker": {
+    "selectedEmpty": "No tags selected yet. Pick some stacks from the sections below.",
+    "searchPlaceholder": "Search languages or topics",
+    "sectionPersonal": "From your repos",
+    "sectionPersonalHint": "Topics detected in your GitHub activity",
+    "sectionLanguages": "Languages",
+    "sectionLanguagesHint": "GitHub Linguist",
+    "sectionTopics": "GitHub Featured topics",
+    "sectionTopicsHint": "Featured / Curated topics",
+    "noMatch": "No matches.",
+    "empty": "Nothing to show.",
+    "removeSelected": "Remove tag {tag}",
+    "langBadge": "Language",
+    "topicBadge": "Topic"
+  },
   "Guide": {
     "title": "Contribution guide",
     "intro": "New to open source? Follow these five steps end-to-end.",

@@ -19,8 +19,8 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 }
 
 /**
- * [목적] GitHub 활동을 분석해 user_profiles에 upsert한다. stack/level만 갱신하고 도메인·온보딩 상태는 유지.
- * [주의] 최초 호출 시 row가 없으면 insert. 이미 존재하면 stack_tags/level/updated_at만 덮어쓴다.
+ * [목적] GitHub 활동을 분석해 user_profiles에 upsert한다. stack/level/personal_topics을 갱신하고 도메인·온보딩 상태는 유지.
+ * [주의] 최초 호출 시 row가 없으면 insert. 이미 존재하면 stack_tags/level/personal_topics/updated_at만 덮어쓴다.
  *        온보딩 중 수동 편집한 stack_tags는 재분석 시 덮어쓰여질 수 있음을 유의.
  */
 export async function analyzeAndSaveProfile(
@@ -28,7 +28,7 @@ export async function analyzeAndSaveProfile(
   accessToken: string,
 ): Promise<UserProfile> {
   const activity = await fetchGitHubActivity(accessToken);
-  const { stackTags, level } = deriveSkillProfile(activity);
+  const { stackTags, level, personalTopics } = deriveSkillProfile(activity);
 
   const now = new Date();
   const [row] = await db
@@ -37,11 +37,12 @@ export async function analyzeAndSaveProfile(
       userId,
       stackTags,
       level,
+      personalTopics,
       updatedAt: now,
     })
     .onConflictDoUpdate({
       target: userProfiles.userId,
-      set: { stackTags, level, updatedAt: now },
+      set: { stackTags, level, personalTopics, updatedAt: now },
     })
     .returning();
 

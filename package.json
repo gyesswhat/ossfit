@@ -12,7 +12,8 @@
     "format:check": "prettier --check .",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "sync:catalog": "node scripts/sync-catalog.mjs"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",
@@ -40,6 +41,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "js-yaml": "^4.1.1",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4",

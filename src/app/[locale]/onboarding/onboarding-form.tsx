@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { TagPicker } from '@/components/features/tag-picker';
 import { completeOnboarding } from './actions';
 
 type Step = 1 | 2;
@@ -12,40 +13,30 @@ type Props = {
   locale: string;
   initialStackTags: string[];
   initialDomains: string[];
+  personalTopics: readonly string[];
   domainOptions: readonly string[];
 };
 
 /**
- * [목적] 2단계 온보딩 UI. 1단계는 스택 태그 편집, 2단계는 관심 도메인 선택.
- * [주의] 제출은 Server Action `completeOnboarding`에 위임하고, 폼에 hidden input으로 선택값을 복제 전달한다.
- *        클라이언트에서 버튼 이동만 관리하고 최종 저장은 서버에서 검증·적용한다.
+ * [목적] 2단계 온보딩 UI. 1단계는 TagPicker로 카탈로그 기반 스택 편집, 2단계는 관심 도메인 선택.
+ * [주의] 자유 입력을 제거해 유효하지 않은 토픽·언어가 DB에 저장되지 않도록 한다.
+ *        TagPicker는 선택 상태를 부모가 관리하고, 서버 검증은 Server Action에서 한 번 더 걸러낸다.
  */
 export function OnboardingForm({
   locale,
   initialStackTags,
   initialDomains,
+  personalTopics,
   domainOptions,
 }: Props) {
   const t = useTranslations('Onboarding');
   const [step, setStep] = useState<Step>(1);
   const [stackTags, setStackTags] = useState<string[]>(initialStackTags);
-  const [newTag, setNewTag] = useState('');
   const [domains, setDomains] = useState<string[]>(initialDomains);
   const [isPending, startTransition] = useTransition();
 
   const canGoNext = stackTags.length > 0;
   const canSubmit = useMemo(() => domains.length > 0, [domains]);
-
-  function addTag(raw: string) {
-    const tag = raw.trim().toLowerCase();
-    if (!tag) return;
-    setStackTags((prev) => (prev.includes(tag) ? prev : [...prev, tag]));
-    setNewTag('');
-  }
-
-  function removeTag(tag: string) {
-    setStackTags((prev) => prev.filter((value) => value !== tag));
-  }
 
   function toggleDomain(domain: string) {
     setDomains((prev) =>
@@ -87,41 +78,11 @@ export function OnboardingForm({
             </h2>
             <p className="text-sm text-muted-foreground">{t('step1Description')}</p>
           </div>
-          <div className="flex min-h-10 flex-wrap gap-2">
-            {stackTags.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('stackEmpty')}</p>
-            ) : (
-              stackTags.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
-                  aria-label={t('removeTag', { tag })}
-                >
-                  {tag} ×
-                </button>
-              ))
-            )}
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newTag}
-              onChange={(event) => setNewTag(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  addTag(newTag);
-                }
-              }}
-              placeholder={t('stackPlaceholder')}
-              className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            />
-            <Button type="button" variant="outline" onClick={() => addTag(newTag)}>
-              {t('addTag')}
-            </Button>
-          </div>
+          <TagPicker
+            selectedSlugs={stackTags}
+            personalTopicSlugs={personalTopics}
+            onChange={setStackTags}
+          />
           <div className="flex justify-end">
             <Button
               type="button"

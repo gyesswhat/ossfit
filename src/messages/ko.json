@@ -96,6 +96,21 @@
     "detailLoading": "이슈 본문을 불러오는 중...",
     "guideLink": "기여 가이드"
   },
+  "TagPicker": {
+    "selectedEmpty": "선택된 태그가 없어요. 아래 섹션에서 관심 스택을 골라 주세요.",
+    "searchPlaceholder": "언어나 토픽 검색",
+    "sectionPersonal": "내 레포 토픽",
+    "sectionPersonalHint": "GitHub 활동에서 추출한 토픽",
+    "sectionLanguages": "언어",
+    "sectionLanguagesHint": "GitHub Linguist 기준",
+    "sectionTopics": "GitHub Featured 토픽",
+    "sectionTopicsHint": "Featured / Curated 토픽",
+    "noMatch": "일치하는 항목이 없어요.",
+    "empty": "표시할 항목이 없어요.",
+    "removeSelected": "{tag} 태그 제거",
+    "langBadge": "언어",
+    "topicBadge": "토픽"
+  },
   "Guide": {
     "title": "기여 가이드",
     "intro": "처음이라면 이 순서대로 따라가 보세요. 5단계로 끝납니다.",

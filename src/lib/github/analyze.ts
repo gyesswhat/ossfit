@@ -1,8 +1,9 @@
 import { graphql } from '@octokit/graphql';
+import { isKnownLanguage, isValidTopicSlug, normalizeSlug } from './catalog';
 
 /**
- * [목적] 사용자 OAuth 토큰으로 GitHub GraphQL을 호출해 언어별 바이트와 merged PR 수를 수집한다.
- * [주의] 상위 10개 레포(푸시 최신순)의 언어 분포만 샘플링한다. 전체 레포 집계는 쿼터가 커 피한다.
+ * [목적] 사용자 OAuth 토큰으로 GitHub GraphQL을 호출해 언어별 바이트, 개인 토픽, merged PR 수를 수집한다.
+ * [주의] 상위 10개 레포(푸시 최신순)의 언어·토픽 분포만 샘플링한다. 전체 레포 집계는 쿼터가 커 피한다.
  *        `MERGED` 필터를 totalCount와 함께 사용해 추가 페이지네이션 없이 합계만 얻는다.
  */
 
@@ -10,6 +11,7 @@ export type GitHubLanguageBytes = { name: string; bytes: number };
 
 export type GitHubActivity = {
   languages: GitHubLanguageBytes[];
+  personalTopics: string[];
   mergedPullRequestCount: number;
 };
 
@@ -19,6 +21,9 @@ type ActivityQueryResponse = {
       nodes: Array<{
         languages: {
           edges: Array<{ size: number; node: { name: string } }> | null;
+        } | null;
+        repositoryTopics: {
+          nodes: Array<{ topic: { name: string } | null } | null> | null;
         } | null;
       } | null> | null;
     };
@@ -41,6 +46,13 @@ const ACTIVITY_QUERY = /* GraphQL */ `
             edges {
               size
               node {
+                name
+              }
+            }
+          }
+          repositoryTopics(first: 20) {
+            nodes {
+              topic {
                 name
               }
             }
@@ -68,12 +80,20 @@ export async function fetchGitHubActivity(
   const response = await client<ActivityQueryResponse>(ACTIVITY_QUERY);
 
   const byteMap = new Map<string, number>();
+  const topicSet = new Set<string>();
   for (const repo of response.viewer.repositories.nodes ?? []) {
     for (const edge of repo?.languages?.edges ?? []) {
       const name = edge?.node?.name;
       const size = edge?.size ?? 0;
       if (!name) continue;
       byteMap.set(name, (byteMap.get(name) ?? 0) + size);
+    }
+    for (const entry of repo?.repositoryTopics?.nodes ?? []) {
+      const name = entry?.topic?.name;
+      if (!name) continue;
+      const slug = normalizeSlug(name);
+      if (!slug || !isValidTopicSlug(slug)) continue;
+      topicSet.add(slug);
     }
   }
 
@@ -83,6 +103,7 @@ export async function fetchGitHubActivity(
 
   return {
     languages,
+    personalTopics: [...topicSet].sort(),
     mergedPullRequestCount: response.viewer.pullRequests.totalCount,
   };
 }
@@ -102,17 +123,17 @@ const STACK_TAG_MIN_SHARE = 0.05;
 const STACK_TAG_MAX = 8;
 
 /**
- * [목적] 언어를 GitHub Search 쿼리에서 그대로 사용 가능한 태그로 정규화.
- * [주의] GitHub `language:` 한정자는 공식 표기를 요구한다. 여기서는 소문자 + 공백 제거로 근사치를 만든다.
- *        `C++` → `c++`, `C#` → `c#` 등 연산자 문자는 그대로 둔다 (UNIT-07 쿼리 빌더에서 따옴표 처리).
+ * [목적] Linguist 언어명(예: "C++")을 카탈로그 슬러그(예: "c++")로 정규화.
+ * [주의] 카탈로그가 인식하지 않는 언어(예: 마크업 전용)는 그대로 반환돼 호출 측에서 걸러진다.
  */
 export function normalizeLanguageTag(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, '-');
+  return normalizeSlug(name);
 }
 
 /**
- * [목적] 언어 바이트 분포에서 점유율 5% 이상인 언어를 최대 8개까지 스택 태그로 추출.
- * [주의] 합계 바이트가 0이면 빈 배열을 반환한다.
+ * [목적] 언어 바이트 분포에서 점유율 5% 이상인 카탈로그 등록 언어를 최대 8개까지 추출.
+ * [주의] 카탈로그에 없는 언어는 버려 "저장된 태그 = 검색에 쓰이는 태그"를 보장한다.
+ *        합계 바이트가 0이면 빈 배열을 반환.
  */
 export function deriveStackTags(languages: GitHubLanguageBytes[]): string[] {
   const totalBytes = languages.reduce((sum, lang) => sum + lang.bytes, 0);
@@ -120,13 +141,15 @@ export function deriveStackTags(languages: GitHubLanguageBytes[]): string[] {
 
   return languages
     .filter((lang) => lang.bytes / totalBytes >= STACK_TAG_MIN_SHARE)
-    .slice(0, STACK_TAG_MAX)
-    .map((lang) => normalizeLanguageTag(lang.name));
+    .map((lang) => normalizeLanguageTag(lang.name))
+    .filter((slug) => isKnownLanguage(slug))
+    .slice(0, STACK_TAG_MAX);
 }
 
 export type DerivedSkillProfile = {
   stackTags: string[];
   level: SkillLevel;
+  personalTopics: string[];
 };
 
 /**
@@ -136,5 +159,6 @@ export function deriveSkillProfile(activity: GitHubActivity): DerivedSkillProfil
   return {
     stackTags: deriveStackTags(activity.languages),
     level: deriveLevel(activity.mergedPullRequestCount),
+    personalTopics: activity.personalTopics,
   };
 }

@@ -57,6 +57,7 @@ export default async function OnboardingPage({
             locale={locale}
             initialStackTags={profile?.stackTags ?? []}
             initialDomains={profile?.domains ?? []}
+            personalTopics={profile?.personalTopics ?? []}
             domainOptions={DOMAIN_OPTIONS}
           />
         </CardContent>

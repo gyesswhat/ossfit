@@ -98,7 +98,11 @@ export default async function ProfilePage({
           <CardDescription>{t('stackSectionDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <StackEditor locale={locale} initialStackTags={profile.stackTags} />
+          <StackEditor
+            locale={locale}
+            initialStackTags={profile.stackTags}
+            personalTopics={profile.personalTopics}
+          />
         </CardContent>
       </Card>
 

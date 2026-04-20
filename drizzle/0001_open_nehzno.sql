@@ -1,0 +1,1 @@
+ALTER TABLE "user_profiles" ADD COLUMN "personal_topics" text[] DEFAULT '{}' NOT NULL;

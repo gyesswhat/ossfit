@@ -58,6 +58,7 @@ export const userProfiles = pgTable('user_profiles', {
   stackTags: text('stack_tags').array().notNull().default([]),
   level: text('level').notNull().default('입문'),
   domains: text('domains').array().notNull().default([]),
+  personalTopics: text('personal_topics').array().notNull().default([]),
   onboardingCompleted: boolean('onboarding_completed').notNull().default(false),
   createdAt: timestamp('created_at', { mode: 'date', withTimezone: true })
     .notNull()

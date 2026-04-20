@@ -4,9 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { hasLocale } from 'next-intl';
 import { routing } from '@/i18n/routing';
 import { auth } from '@/lib/auth';
+import { classifyTag, normalizeSlug } from '@/lib/github/catalog';
 import { updateUserProfile } from '@/lib/profile/service';
 
-const MAX_STACK_TAG_LENGTH = 40;
 const MAX_STACK_TAGS = 20;
 
 export type UpdateStackState = {
@@ -37,8 +37,8 @@ export async function updateStackAction(
   const stackTags = Array.from(
     new Set(
       stackTagsRaw
-        .map((tag) => tag.trim().toLowerCase())
-        .filter((tag) => tag.length > 0 && tag.length <= MAX_STACK_TAG_LENGTH),
+        .map((tag) => normalizeSlug(tag))
+        .filter((slug) => classifyTag(slug) !== null),
     ),
   ).slice(0, MAX_STACK_TAGS);
 
