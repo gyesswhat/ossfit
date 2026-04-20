@@ -73,7 +73,19 @@ export default async function HomePage({
     try {
       result = await searchIssues(query, session.accessToken);
     } catch (error) {
-      errorKey = isRateLimitError(error) ? 'rate-limit' : 'unknown';
+      if (isRateLimitError(error)) {
+        console.warn('[page/feed] rate limited', { query });
+        errorKey = 'rate-limit';
+      } else {
+        console.error('[page/feed] search failed', {
+          query,
+          tags,
+          labels,
+          stackTags: profile.stackTags,
+          error,
+        });
+        errorKey = 'unknown';
+      }
     }
   }
 
