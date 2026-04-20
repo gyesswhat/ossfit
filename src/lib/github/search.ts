@@ -98,8 +98,8 @@ type GraphQLSearchResponse = {
 };
 
 const SEARCH_QUERY = /* GraphQL */ `
-  query OssfitSearchIssues($query: String!, $first: Int!) {
-    search(query: $query, type: ISSUE, first: $first) {
+  query OssfitSearchIssues($searchQuery: String!, $first: Int!) {
+    search(query: $searchQuery, type: ISSUE, first: $first) {
       issueCount
       nodes {
         __typename
@@ -161,7 +161,7 @@ export async function searchIssues(
   });
 
   const response = await client<GraphQLSearchResponse>(SEARCH_QUERY, {
-    query,
+    searchQuery: query,
     first: Math.min(Math.max(limit, 1), 50),
   });
 
