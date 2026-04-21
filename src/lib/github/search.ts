@@ -291,10 +291,11 @@ export type SearchReposMultiOptions = {
 };
 
 /**
- * [목적] 여러 언어 × 토픽 × 라이선스 조합에 대해 REPOSITORY Search를 병렬 호출하고,
- *        레포 id로 dedup 한 뒤 pushedAt 기준으로 stale repo를 클라이언트 사이드에서 한 번 더 컷.
- * [주의] 각 sub-query는 프리패치 상한(prefetchPerSubQuery)까지 끌어와 머지 풀을 만든다.
- *        rate-limit이 한 sub-query라도 발생하면 예외가 전체로 전파된다.
+ * [목적] 여러 언어 × 토픽 조합에 대해 REPOSITORY Search를 병렬 호출하고,
+ *        레포 id로 dedup 한 뒤 pushedAt·라이선스 화이트리스트 기준으로 클라이언트 사이드에서 컷.
+ * [주의] 라이선스는 GitHub Search API에 보내지 않고 결과 필터로만 적용한다.
+ *        license 조건을 쿼리에 넣으면 whitelist 길이만큼 sub-query가 Cartesian 곱으로 늘어나
+ *        검색 API 분당 30회 제한(secondary rate limit)을 즉시 넘어버리기 때문.
  */
 export async function searchReposMulti(
   input: SearchReposMultiInput,
@@ -310,25 +311,21 @@ export async function searchReposMulti(
 
   const languageCombos = input.languages.length > 0 ? input.languages : [null];
   const topicCombos = input.topics.length > 0 ? input.topics : [null];
-  const licenseCombos = input.licenses.length > 0 ? input.licenses : [null];
 
   const subQueries: string[] = [];
   for (const language of languageCombos) {
     for (const topic of topicCombos) {
-      for (const license of licenseCombos) {
-        const tags: string[] = [];
-        if (language) tags.push(language);
-        if (topic) tags.push(topic);
-        subQueries.push(
-          buildRepoSearchQuery(tags, {
-            sort: options.sort,
-            minStars: options.minStars,
-            freshnessWindowDays: options.freshnessWindowDays,
-            license: license ?? undefined,
-            isFork: false,
-          }),
-        );
-      }
+      const tags: string[] = [];
+      if (language) tags.push(language);
+      if (topic) tags.push(topic);
+      subQueries.push(
+        buildRepoSearchQuery(tags, {
+          sort: options.sort,
+          minStars: options.minStars,
+          freshnessWindowDays: options.freshnessWindowDays,
+          isFork: false,
+        }),
+      );
     }
   }
 
@@ -353,12 +350,19 @@ export async function searchReposMulti(
     repoStaleThreshold > 0
       ? new Date(isoDateDaysAgo(repoStaleThreshold)).getTime()
       : null;
+  const licenseAllowList =
+    input.licenses.length > 0
+      ? new Set(input.licenses.map((slug) => slug.toLowerCase()))
+      : null;
 
   const filtered: RepoResult[] = [];
   for (const repo of merged.values()) {
     if (repoCutoff !== null) {
       const pushedAtMs = Date.parse(repo.pushedAt);
       if (Number.isFinite(pushedAtMs) && pushedAtMs < repoCutoff) continue;
+    }
+    if (licenseAllowList && !matchesLicenseAllowList(repo.license, licenseAllowList)) {
+      continue;
     }
     filtered.push(repo);
   }
@@ -432,6 +436,14 @@ function toRepoResult(node: GraphQLRepositoryNode): RepoResult {
     topics,
     openIssueCount: node.issues.totalCount,
   };
+}
+
+function matchesLicenseAllowList(
+  license: string | null,
+  allow: Set<string>,
+): boolean {
+  if (!license) return false;
+  return allow.has(license.toLowerCase());
 }
 
 function sortMergedRepos(repos: RepoResult[], sort: SortOption): RepoResult[] {
