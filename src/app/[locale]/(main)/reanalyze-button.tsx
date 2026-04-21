@@ -19,13 +19,18 @@ export function ReanalyzeButton({ locale }: { locale: string }) {
     initialState,
   );
   const [showSuccess, setShowSuccess] = useState(false);
+  const [trackedStatus, setTrackedStatus] = useState(state.status);
+
+  if (trackedStatus !== state.status) {
+    setTrackedStatus(state.status);
+    if (state.status === 'success') setShowSuccess(true);
+  }
 
   useEffect(() => {
-    if (state.status !== 'success') return;
-    setShowSuccess(true);
+    if (!showSuccess) return;
     const timer = setTimeout(() => setShowSuccess(false), 2500);
     return () => clearTimeout(timer);
-  }, [state]);
+  }, [showSuccess]);
 
   const errorMessage =
     state.status === 'missing-token'
