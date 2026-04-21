@@ -1,10 +1,10 @@
 'use client';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { usePathname, useRouter } from '@/i18n/navigation';
+import { useFeedPending } from './feed-pending-context';
 
 type Props = {
   page: number;
@@ -17,6 +17,7 @@ type Props = {
  * [목적] 피드 하단의 이전/다음 페이지 네비게이터. URL param `page`로 상태를 영속화하고,
  *        GitHub Search 1000건 제한으로 잘린 `totalPages`를 그대로 표시한다.
  * [주의] `totalPages`가 1이면 아예 렌더하지 않는다.
+ *        필터와 동일한 isPending을 공유해 페이지 이동 중에도 카드 그리드가 dim 처리된다.
  */
 export function FeedPagination({
   page,
@@ -28,7 +29,7 @@ export function FeedPagination({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition();
+  const { isPending, startTransition } = useFeedPending();
 
   if (totalPages <= 1) return null;
 

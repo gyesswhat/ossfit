@@ -72,8 +72,9 @@ export const GITHUB_SEARCH_RESULT_CAP = 1000;
 
 /**
  * OR-병렬 검색 한 sub-query에서 미리 끌어올 레포 개수 상한.
+ * GraphQL `first`의 상한(100) 안에 들도록 50으로 잡아 sub-query당 GraphQL 라운드트립을 1회로 만든다.
  */
-export const MULTI_PREFETCH_PER_SUBQUERY = 80;
+export const MULTI_PREFETCH_PER_SUBQUERY = 50;
 
 /**
  * [목적] 공백을 포함하거나 따옴표가 필요한 값을 한정자에 안전하게 끼워넣는다.
@@ -241,7 +242,7 @@ const REPO_SEARCH_QUERY = /* GraphQL */ `
           primaryLanguage {
             name
           }
-          repositoryTopics(first: 10) {
+          repositoryTopics(first: 5) {
             nodes {
               topic {
                 name
@@ -390,7 +391,7 @@ async function fetchReposUpTo(
   query: string,
   limit: number,
 ): Promise<RepoResult[]> {
-  const pageSize = Math.min(50, Math.max(1, limit));
+  const pageSize = Math.min(100, Math.max(1, limit));
   const results: RepoResult[] = [];
   let cursor: string | null = null;
   while (results.length < limit) {

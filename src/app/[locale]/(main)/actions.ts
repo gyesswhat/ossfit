@@ -1,9 +1,10 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { hasLocale } from 'next-intl';
 import { auth } from '@/lib/auth';
 import { routing } from '@/i18n/routing';
+import { feedCacheTagForUser } from '@/lib/github/search-cache';
 import { analyzeAndSaveProfile } from '@/lib/profile/service';
 
 export type ReanalyzeState = {
@@ -43,6 +44,7 @@ export async function reanalyzeProfileAction(
     return { status: 'error', errorMessage: message };
   }
 
+  updateTag(feedCacheTagForUser(session.user.id));
   revalidatePath(`/${locale}`);
   return { status: 'success' };
 }

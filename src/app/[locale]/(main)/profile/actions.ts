@@ -1,10 +1,11 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { hasLocale } from 'next-intl';
 import { routing } from '@/i18n/routing';
 import { auth } from '@/lib/auth';
 import { classifyTag, normalizeSlug } from '@/lib/github/catalog';
+import { feedCacheTagForUser } from '@/lib/github/search-cache';
 import { DOMAIN_SET } from '@/lib/profile/domains';
 import { updateUserProfile } from '@/lib/profile/service';
 
@@ -51,6 +52,7 @@ export async function updateStackAction(
     return { status: 'error', errorMessage: message };
   }
 
+  updateTag(feedCacheTagForUser(session.user.id));
   revalidatePath(`/${locale}/profile`);
   revalidatePath(`/${locale}`);
   return { status: 'success' };
@@ -95,6 +97,7 @@ export async function updateDomainsAction(
     return { status: 'error', errorMessage: message };
   }
 
+  updateTag(feedCacheTagForUser(session.user.id));
   revalidatePath(`/${locale}/profile`);
   revalidatePath(`/${locale}`);
   return { status: 'success' };

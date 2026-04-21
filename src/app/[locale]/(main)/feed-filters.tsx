@@ -1,7 +1,6 @@
 'use client';
 
 import { SlidersHorizontal } from 'lucide-react';
-import { useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { usePathname, useRouter } from '@/i18n/navigation';
@@ -13,6 +12,7 @@ import {
   type MinStarsOption,
   type SortOption,
 } from '@/lib/github/search';
+import { useFeedPending } from './feed-pending-context';
 
 type Props = {
   availableLanguages: readonly string[];
@@ -23,7 +23,8 @@ type ToggleKey = 'language' | 'topic';
 
 /**
  * [목적] 언어/토픽 토글 + 정렬 + 최소 별 수 필터 패널. URL searchParams에 모든 상태를 영속화한다.
- * [주의] 변경 시 `startTransition`으로 감싸 RSC 재요청을 논블로킹 처리한다.
+ * [주의] 변경 시 공유 startTransition으로 감싸 RSC 재요청을 논블로킹 처리하고,
+ *        같은 isPending을 피드 영역 오버레이/진행 바와 공유한다.
  */
 export function FeedFilters({
   availableLanguages,
@@ -33,7 +34,7 @@ export function FeedFilters({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition();
+  const { isPending, startTransition } = useFeedPending();
 
   const selectedLanguages = searchParams.getAll('language');
   const selectedTopics = searchParams.getAll('topic');

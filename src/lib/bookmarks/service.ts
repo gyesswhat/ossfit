@@ -67,3 +67,18 @@ export async function getBookmarkedRepoUrls(
     );
   return new Set(rows.map((row) => row.repoUrl));
 }
+
+/**
+ * [목적] 사용자의 모든 북마크 URL을 Set으로 반환. 검색과 병렬로 발사해 검색 응답 후 in-memory intersect 한다.
+ * [주의] 북마크 양이 큰 사용자도 컬럼 1개만 SELECT 하므로 부담이 작다.
+ *        호출자는 검색 결과 url 목록과 교집합을 직접 계산해 `initialBookmarkedUrls`로 넘긴다.
+ */
+export async function listBookmarkedRepoUrlsForUser(
+  userId: string,
+): Promise<Set<string>> {
+  const rows = await db
+    .select({ repoUrl: bookmarks.repoUrl })
+    .from(bookmarks)
+    .where(eq(bookmarks.userId, userId));
+  return new Set(rows.map((row) => row.repoUrl));
+}

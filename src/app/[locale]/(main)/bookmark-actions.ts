@@ -1,10 +1,11 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { hasLocale } from 'next-intl';
 import { auth } from '@/lib/auth';
 import { routing } from '@/i18n/routing';
 import { toggleBookmark } from '@/lib/bookmarks/service';
+import { feedCacheTagForUser } from '@/lib/github/search-cache';
 
 export type ToggleBookmarkResult =
   | { status: 'ok'; bookmarked: boolean }
@@ -47,6 +48,7 @@ export async function toggleBookmarkAction(input: {
       input.repoUrl,
       input.repoFullName,
     );
+    updateTag(feedCacheTagForUser(session.user.id));
     revalidatePath(`/${locale}`);
     return { status: 'ok', bookmarked };
   } catch (error) {
