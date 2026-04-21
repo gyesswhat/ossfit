@@ -9,7 +9,6 @@ import { displayNameForSlug } from '@/lib/github/catalog';
 import {
   DEFAULT_SORT,
   MIN_STARS_OPTIONS,
-  RECOMMENDED_LABELS,
   SORT_OPTIONS,
   type MinStarsOption,
   type SortOption,
@@ -18,20 +17,17 @@ import {
 type Props = {
   availableLanguages: readonly string[];
   availableTopics: readonly string[];
-  defaultLabels: readonly string[];
 };
 
-type ToggleKey = 'label' | 'language' | 'topic';
+type ToggleKey = 'language' | 'topic';
 
 /**
- * [목적] 라벨/언어/토픽 토글 + 정렬 + 보조 필터 패널. URL searchParams에 모든 상태를 영속화한다.
+ * [목적] 언어/토픽 토글 + 정렬 + 최소 별 수 필터 패널. URL searchParams에 모든 상태를 영속화한다.
  * [주의] 변경 시 `startTransition`으로 감싸 RSC 재요청을 논블로킹 처리한다.
- *        단일 값 파라미터(sort, minStars, noAssignee)는 set 후 중복을 제거한다.
  */
 export function FeedFilters({
   availableLanguages,
   availableTopics,
-  defaultLabels,
 }: Props) {
   const t = useTranslations('Feed');
   const router = useRouter();
@@ -39,9 +35,6 @@ export function FeedFilters({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  const selectedLabelsRaw = searchParams.getAll('label');
-  const selectedLabels =
-    selectedLabelsRaw.length > 0 ? selectedLabelsRaw : defaultLabels;
   const selectedLanguages = searchParams.getAll('language');
   const selectedTopics = searchParams.getAll('topic');
 
@@ -52,13 +45,11 @@ export function FeedFilters({
       : DEFAULT_SORT;
 
   const minStarsParam = Number(searchParams.get('minStars') ?? 0);
-  const selectedMinStars: MinStarsOption = (MIN_STARS_OPTIONS as readonly number[]).includes(
+  const selectedMinStars: MinStarsOption | 0 = (MIN_STARS_OPTIONS as readonly number[]).includes(
     minStarsParam,
   )
     ? (minStarsParam as MinStarsOption)
     : 0;
-
-  const noAssignee = searchParams.get('noAssignee') === '1';
 
   function updateParams(mutate: (next: URLSearchParams) => void) {
     const next = new URLSearchParams(searchParams);
@@ -93,17 +84,10 @@ export function FeedFilters({
     });
   }
 
-  function setMinStars(value: MinStarsOption) {
+  function setMinStars(value: MinStarsOption | 0) {
     updateParams((next) => {
       next.delete('minStars');
       if (value > 0) next.set('minStars', String(value));
-    });
-  }
-
-  function toggleNoAssignee(on: boolean) {
-    updateParams((next) => {
-      next.delete('noAssignee');
-      if (on) next.set('noAssignee', '1');
     });
   }
 
@@ -120,29 +104,9 @@ export function FeedFilters({
         <span className="text-xs text-muted-foreground">{t('filtersHint')}</span>
       </header>
 
-      <FilterGroup
-        title={t('filterLabels')}
-        emptyHint={t('filterLabelsEmpty')}
-        isEmpty={selectedLabels.length === 0}
-      >
-        {RECOMMENDED_LABELS.map((label) => {
-          const active = selectedLabels.includes(label);
-          return (
-            <Chip
-              key={label}
-              label={label}
-              active={active}
-              onClick={() => toggle('label', label, !active)}
-            />
-          );
-        })}
-      </FilterGroup>
-
       {availableLanguages.length > 0 && (
         <FilterGroup
           title={t('filterLanguages')}
-          emptyHint={null}
-          isEmpty={false}
           onClear={
             selectedLanguages.length > 0 ? () => clearGroup('language') : null
           }
@@ -165,8 +129,6 @@ export function FeedFilters({
       {availableTopics.length > 0 && (
         <FilterGroup
           title={t('filterTopics')}
-          emptyHint={null}
-          isEmpty={false}
           onClear={
             selectedTopics.length > 0 ? () => clearGroup('topic') : null
           }
@@ -186,7 +148,7 @@ export function FeedFilters({
         </FilterGroup>
       )}
 
-      <FilterGroup title={t('filterSort')} emptyHint={null} isEmpty={false}>
+      <FilterGroup title={t('filterSort')}>
         {SORT_OPTIONS.map((option) => (
           <Chip
             key={option}
@@ -197,28 +159,20 @@ export function FeedFilters({
         ))}
       </FilterGroup>
 
-      <FilterGroup title={t('filterMinStars')} emptyHint={null} isEmpty={false}>
+      <FilterGroup title={t('filterMinStars')}>
+        <Chip
+          label={t('minStarsAny')}
+          active={selectedMinStars === 0}
+          onClick={() => setMinStars(0)}
+        />
         {MIN_STARS_OPTIONS.map((value) => (
           <Chip
             key={value}
-            label={value === 0 ? t('minStarsAny') : `≥ ${value}`}
+            label={`≥ ${value}`}
             active={selectedMinStars === value}
             onClick={() => setMinStars(value)}
           />
         ))}
-      </FilterGroup>
-
-      <FilterGroup title={t('filterAssignee')} emptyHint={null} isEmpty={false}>
-        <Chip
-          label={t('assigneeAny')}
-          active={!noAssignee}
-          onClick={() => toggleNoAssignee(false)}
-        />
-        <Chip
-          label={t('assigneeUnassigned')}
-          active={noAssignee}
-          onClick={() => toggleNoAssignee(true)}
-        />
       </FilterGroup>
     </section>
   );
@@ -226,15 +180,11 @@ export function FeedFilters({
 
 function FilterGroup({
   title,
-  emptyHint,
-  isEmpty,
   onClear,
   clearLabel,
   children,
 }: {
   title: string;
-  emptyHint: string | null;
-  isEmpty: boolean;
   onClear?: (() => void) | null;
   clearLabel?: string;
   children: React.ReactNode;
@@ -255,12 +205,7 @@ function FilterGroup({
           </button>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {children}
-        {isEmpty && emptyHint && (
-          <span className="text-xs text-destructive">{emptyHint}</span>
-        )}
-      </div>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
   );
 }

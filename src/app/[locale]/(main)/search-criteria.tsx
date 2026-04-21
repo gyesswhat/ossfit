@@ -13,40 +13,32 @@ type ChipSource = 'default' | 'custom';
 type Props = {
   languages: readonly string[];
   topics: readonly string[];
-  labels: readonly string[];
   licenses: readonly string[];
   languageSource: ChipSource;
   topicSource: ChipSource;
-  labelSource: ChipSource;
   sort: SortOption;
   minStars: number;
-  noAssignee: boolean;
   freshnessWindowDays: number;
   excludeForks: boolean;
-  beginnerCommentsCap: number | null;
   rawQuery: string;
   hasStack: boolean;
 };
 
 /**
- * [목적] 현재 활성화된 검색 기준(언어·토픽·라벨·정렬·필터)을 사람이 읽기 쉬운 배지와
+ * [목적] 현재 활성화된 레포 검색 기준(언어·토픽·정렬·필터)을 사람이 읽기 쉬운 배지와
  *        GitHub raw query 양쪽으로 안내한다. 각 값의 출처(프로필 기본값 vs URL override)도 표시한다.
  * [주의] 스택이 비어 있을 때도 패널 자체는 렌더해 '스택 설정' CTA를 노출한다.
  */
 export function SearchCriteria({
   languages,
   topics,
-  labels,
   licenses,
   languageSource,
   topicSource,
-  labelSource,
   sort,
   minStars,
-  noAssignee,
   freshnessWindowDays,
   excludeForks,
-  beginnerCommentsCap,
   rawQuery,
   hasStack,
 }: Props) {
@@ -97,21 +89,10 @@ export function SearchCriteria({
             values={topics.map((slug) => displayNameForSlug(slug))}
             emptyLabel={t('criteriaEmpty')}
           />
-          <CriteriaRow
-            label={t('filterLabels')}
-            source={labelSource}
-            sourceLabel={sourceLabel(t, labelSource)}
-            values={labels}
-            emptyLabel={t('criteriaEmpty')}
-          />
           <SimpleRow label={t('filterSort')} value={t(`sortOption.${sort}`)} />
           <SimpleRow
             label={t('filterMinStars')}
             value={minStars > 0 ? `≥ ${minStars}` : t('minStarsAny')}
-          />
-          <SimpleRow
-            label={t('filterAssignee')}
-            value={noAssignee ? t('assigneeUnassigned') : t('assigneeAny')}
           />
           <SimpleRow
             label={t('filterLicense')}
@@ -131,12 +112,6 @@ export function SearchCriteria({
             label={t('filterFork')}
             value={excludeForks ? t('forkExcluded') : t('assigneeAny')}
           />
-          {beginnerCommentsCap !== null && (
-            <SimpleRow
-              label={t('filterBeginnerComments')}
-              value={t('beginnerCommentsValue', { max: beginnerCommentsCap })}
-            />
-          )}
         </dl>
       )}
 

@@ -5,11 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Link } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { auth } from '@/lib/auth';
-import { getBookmarkedIssueUrls } from '@/lib/bookmarks/service';
+import { getBookmarkedRepoUrls } from '@/lib/bookmarks/service';
 import { classifyTag, displayNameForSlug } from '@/lib/github/catalog';
 import {
-  BEGINNER_MAX_COMMENTS,
-  buildDisplayQuery,
+  buildRepoDisplayQuery,
   DEFAULT_FRESHNESS_DAYS,
   DEFAULT_MIN_STARS,
   DEFAULT_SORT,
@@ -17,27 +16,26 @@ import {
   isSortOption,
   LICENSE_WHITELIST,
   MIN_STARS_OPTIONS,
-  RECOMMENDED_LABELS,
-  searchIssuesMulti,
+  searchReposMulti,
   totalPageCount,
-  type SearchIssuesResult,
+  type MinStarsOption,
+  type SearchReposResult,
   type SortOption,
 } from '@/lib/github/search';
 import { ensureUserProfile, getUserProfile } from '@/lib/profile/service';
 import { FeedFilters } from './feed-filters';
 import { FeedPagination } from './feed-pagination';
-import { IssueFeed } from './issue-feed';
 import { LogoutButton } from './logout-button';
 import { ReanalyzeButton } from './reanalyze-button';
+import { RepoFeed } from './repo-feed';
 import { SearchCriteria } from './search-criteria';
 
 type SearchParamRecord = Record<string, string | string[] | undefined>;
 
 /**
- * [목적] 보호된 메인 피드. 사용자 스택과 URL 필터를 합쳐 GitHub Search를 호출하고
- *        검색 기준 안내 + 필터 + 이슈 카드 그리드 + 페이지네이션을 렌더한다.
- * [주의] proxy.ts에서 1차 가드가 걸려 있지만 페이지에서도 세션·온보딩을 재확인한다.
- *        Search 실패 시(404 토큰 만료, 429 rate limit, 기타) 피드는 빈 상태로 두고 안내 메시지만 표시한다.
+ * [목적] 보호된 메인 피드. 사용자 스택과 URL 필터를 합쳐 GitHub REPOSITORY Search를 호출하고
+ *        검색 기준 안내 + 필터 + 레포 카드 그리드 + 페이지네이션을 렌더한다.
+ *        이슈는 카드 안에 넣지 않고, 카드 클릭 시 열리는 상세 모달에서만 노출된다.
  */
 export default async function HomePage({
   params,
@@ -65,7 +63,6 @@ export default async function HomePage({
   }
 
   const resolvedSearchParams = await searchParams;
-  const labelOverrides = readListParam(resolvedSearchParams.label);
   const languageOverrides = readListParam(resolvedSearchParams.language);
   const topicOverrides = readListParam(resolvedSearchParams.topic);
 
@@ -78,8 +75,6 @@ export default async function HomePage({
 
   const effectiveLanguages = languageOverrides;
   const effectiveTopics = topicOverrides;
-  const labels =
-    labelOverrides.length > 0 ? labelOverrides : ['good first issue'];
 
   const sortParam = readScalarParam(resolvedSearchParams.sort);
   const sort: SortOption =
@@ -89,50 +84,40 @@ export default async function HomePage({
     readScalarParam(resolvedSearchParams.minStars),
   );
   const minStars = minStarsOverride > 0 ? minStarsOverride : DEFAULT_MIN_STARS;
-  const noAssignee = readScalarParam(resolvedSearchParams.noAssignee) === '1';
   const page = readPage(readScalarParam(resolvedSearchParams.page));
 
-  const tags = [...effectiveLanguages, ...effectiveTopics];
   const licenses = [...LICENSE_WHITELIST];
-  const isBeginner = profile.level === '입문';
-  const maxComments = isBeginner ? BEGINNER_MAX_COMMENTS : undefined;
   const freshnessWindowDays = DEFAULT_FRESHNESS_DAYS;
 
-  const rawQuery = buildDisplayQuery({
+  const rawQuery = buildRepoDisplayQuery({
     languages: effectiveLanguages,
     topics: effectiveTopics,
     licenses,
-    labels,
     sort,
     minStars,
-    noAssignee,
     freshnessWindowDays,
-    maxComments,
     excludeForks: true,
   });
 
-  let result: SearchIssuesResult | null = null;
+  let result: SearchReposResult | null = null;
   let errorKey: 'rate-limit' | 'missing-token' | 'unknown' | null = null;
 
   if (!session.accessToken) {
     errorKey = 'missing-token';
   } else {
     try {
-      result = await searchIssuesMulti(
+      result = await searchReposMulti(
         {
           languages: effectiveLanguages,
           topics: effectiveTopics,
           licenses,
-          labels,
         },
         session.accessToken,
         {
           sort,
           minStars,
-          noAssignee,
           freshnessWindowDays,
           repoStaleThresholdDays: DEFAULT_FRESHNESS_DAYS,
-          maxComments,
           page,
         },
       );
@@ -141,10 +126,10 @@ export default async function HomePage({
         console.warn('[page/feed] rate limited', { rawQuery });
         errorKey = 'rate-limit';
       } else {
-        console.error('[page/feed] search failed', {
+        console.error('[page/feed] repo search failed', {
           rawQuery,
-          tags,
-          labels,
+          languages: effectiveLanguages,
+          topics: effectiveTopics,
           stackTags: profile.stackTags,
           error,
         });
@@ -155,9 +140,9 @@ export default async function HomePage({
 
   const bookmarkedUrls = result
     ? Array.from(
-        await getBookmarkedIssueUrls(
+        await getBookmarkedRepoUrls(
           session.user.id,
-          result.issues.map((issue) => issue.url),
+          result.repos.map((repo) => repo.url),
         ),
       )
     : [];
@@ -167,7 +152,7 @@ export default async function HomePage({
   const profileT = await getTranslations('Profile');
   const displayName = session.user.name ?? session.user.email ?? 'OSSFIT';
 
-  const totalPages = result ? totalPageCount(result.issueCount) : 1;
+  const totalPages = result ? totalPageCount(result.repoCount) : 1;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
@@ -231,17 +216,13 @@ export default async function HomePage({
       <SearchCriteria
         languages={effectiveLanguages}
         topics={effectiveTopics}
-        labels={labels}
         licenses={licenses}
         languageSource={languageOverrides.length > 0 ? 'custom' : 'default'}
         topicSource={topicOverrides.length > 0 ? 'custom' : 'default'}
-        labelSource={labelOverrides.length > 0 ? 'custom' : 'default'}
         sort={sort}
         minStars={minStars}
-        noAssignee={noAssignee}
         freshnessWindowDays={freshnessWindowDays}
         excludeForks
-        beginnerCommentsCap={maxComments ?? null}
         rawQuery={rawQuery}
         hasStack
       />
@@ -249,7 +230,6 @@ export default async function HomePage({
       <FeedFilters
         availableLanguages={profileLanguages}
         availableTopics={profileTopics}
-        defaultLabels={[RECOMMENDED_LABELS[0]]}
       />
 
       <section aria-labelledby="feed-heading" className="flex flex-col gap-3">
@@ -259,7 +239,7 @@ export default async function HomePage({
           </h2>
           {result && (
             <span className="text-xs text-muted-foreground">
-              {t('total', { count: result.issueCount })}
+              {t('total', { count: result.repoCount })}
             </span>
           )}
         </div>
@@ -272,15 +252,13 @@ export default async function HomePage({
         )}
         {errorKey === 'unknown' && <ErrorPanel message={t('errorUnknown')} />}
 
-        {result && result.issues.length === 0 && !errorKey && (
+        {result && result.repos.length === 0 && !errorKey && (
           <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-8 text-center">
             <p className="text-sm text-muted-foreground">{t('empty')}</p>
-            {(labelOverrides.length > 0 ||
-              languageOverrides.length > 0 ||
+            {(languageOverrides.length > 0 ||
               topicOverrides.length > 0 ||
               sortParam !== null ||
               minStarsOverride > 0 ||
-              noAssignee ||
               page > 1) && (
               <Link
                 href="/"
@@ -292,11 +270,11 @@ export default async function HomePage({
           </div>
         )}
 
-        {result && result.issues.length > 0 && (
+        {result && result.repos.length > 0 && (
           <>
-            <IssueFeed
+            <RepoFeed
               locale={locale}
-              issues={result.issues}
+              repos={result.repos}
               initialBookmarkedUrls={bookmarkedUrls}
             />
             <FeedPagination
@@ -324,12 +302,14 @@ function readScalarParam(value: string | string[] | undefined): string | null {
   return raw && raw.length > 0 ? raw : null;
 }
 
-function readMinStars(value: string | null): number {
+function readMinStars(value: string | null): MinStarsOption | 0 {
   if (!value) return 0;
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 0;
   const rounded = Math.max(0, Math.floor(parsed));
-  return (MIN_STARS_OPTIONS as readonly number[]).includes(rounded) ? rounded : 0;
+  return (MIN_STARS_OPTIONS as readonly number[]).includes(rounded)
+    ? (rounded as MinStarsOption)
+    : 0;
 }
 
 function readPage(value: string | null): number {
