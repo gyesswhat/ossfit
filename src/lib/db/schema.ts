@@ -69,8 +69,8 @@ export const userProfiles = pgTable('user_profiles', {
 });
 
 /**
- * [목적] 사용자가 저장한 GitHub 이슈 북마크.
- * [주의] 동일 사용자가 같은 이슈를 중복 저장할 수 없도록 unique index 강제.
+ * [목적] 사용자가 저장한 GitHub 레포 북마크. 피드가 레포-퍼스트로 바뀌면서 북마크 단위도 레포다.
+ * [주의] 동일 사용자가 같은 레포를 중복 저장할 수 없도록 unique index 강제.
  */
 export const bookmarks = pgTable(
   'bookmarks',
@@ -79,13 +79,13 @@ export const bookmarks = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    issueUrl: text('issue_url').notNull(),
+    repoUrl: text('repo_url').notNull(),
     repoFullName: text('repo_full_name').notNull(),
     createdAt: timestamp('created_at', { mode: 'date', withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex('bookmarks_user_issue_unique').on(t.userId, t.issueUrl)],
+  (t) => [uniqueIndex('bookmarks_user_repo_unique').on(t.userId, t.repoUrl)],
 );
 
 export type User = typeof users.$inferSelect;

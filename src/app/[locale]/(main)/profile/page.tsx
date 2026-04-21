@@ -136,12 +136,12 @@ export default async function ProfilePage({
                     </span>
                   </div>
                   <a
-                    href={bookmark.issueUrl}
+                    href={bookmark.repoUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                   >
-                    {bookmark.issueUrl}
+                    {bookmark.repoUrl}
                     <ExternalLink className="size-3" aria-hidden />
                   </a>
                 </li>
